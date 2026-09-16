@@ -1,0 +1,163 @@
+<!-- 核心指标看板模块 -->
+<section id="indicatorsSection" class="indicators-section">
+    <h2>📊 核心业务指标</h2>
+    <div class="indicators-grid" id="indicatorsGrid">
+        <!-- 指标卡片将通过JavaScript动态生成 -->
+    </div>
+    <div id="indicatorsStatus" class="status"></div>
+</section>
+
+<style>
+.indicators-section {
+    grid-column: 1 / -1;
+}
+.indicators-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+.indicator-card {
+    background: linear-gradient(135deg, #f8faff 0%, #e8f0ff 100%);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #e2e8ff;
+    position: relative;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+.indicator-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(22,93,255,0.15);
+    border-color: #165DFF;
+}
+.indicator-card.alert-red {
+    border-left: 4px solid #d93025;
+}
+.indicator-card.alert-yellow {
+    border-left: 4px solid #f9a825;
+}
+.indicator-card.alert-blue {
+    border-left: 4px solid #1976d2;
+}
+.indicator-label {
+    font-size: 13px;
+    color: #5b6da7;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.indicator-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #165DFF;
+    margin: 8px 0;
+    line-height: 1;
+}
+.indicator-explanation {
+    font-size: 12px;
+    color: #7a8ba8;
+    margin-top: 8px;
+    line-height: 1.5;
+    display: none;
+}
+.indicator-card:hover .indicator-explanation {
+    display: block;
+}
+.indicator-instruction {
+    font-size: 12px;
+    color: #0E1E5B;
+    margin-top: 8px;
+    padding: 8px;
+    background: rgba(22,93,255,0.05);
+    border-radius: 6px;
+    font-weight: 500;
+}
+.info-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #165DFF;
+    color: white;
+    text-align: center;
+    line-height: 16px;
+    font-size: 11px;
+    cursor: help;
+    margin-left: 4px;
+}
+.info-icon:hover {
+    background: #0d4ed8;
+}
+</style>
+
+<script>
+function renderIndicators(data, interpretations) {
+    const grid = document.getElementById('indicatorsGrid');
+    if (!grid) return;
+    
+    // 检查数据是否有效
+    if (!data || (!data.grid_count && !data.hotspot_count && !data.global_moran)) {
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #7a8ba8;">
+                <p style="font-size: 18px; margin-bottom: 12px;">📊 暂无分析数据</p>
+                <p style="font-size: 14px;">请先上传CSV轨迹数据文件，然后执行风险分析</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const indicators = [
+        {
+            key: 'grid_count',
+            label: '网格数量',
+            value: data.grid_count || 0,
+            icon: '📐',
+            explanation: interpretations?.indicators?.grid_count?.explanation || '分析区域被划分的网格单元数量',
+            instruction: interpretations?.indicators?.grid_count?.instruction || '',
+            alert: null
+        },
+        {
+            key: 'hotspot_count',
+            label: '热点数量',
+            value: data.hotspot_count || 0,
+            icon: '🔥',
+            explanation: interpretations?.indicators?.hotspot_count?.explanation || '识别出的风险热点区域数量',
+            instruction: interpretations?.indicators?.hotspot_count?.instruction || '',
+            alert: interpretations?.indicators?.hotspot_count?.alert_level || 'blue'
+        },
+        {
+            key: 'global_moran',
+            label: '全局 Moran\'s I',
+            value: data.global_moran?.moran_i?.toFixed(3) || '-',
+            icon: '🔗',
+            explanation: interpretations?.indicators?.global_moran?.explanation || '空间自相关指数',
+            instruction: interpretations?.indicators?.global_moran?.instruction || '',
+            alert: null
+        },
+        {
+            key: 'trend',
+            label: '趋势结果',
+            value: data.trend?.trend || 'unknown',
+            icon: '📈',
+            explanation: interpretations?.indicators?.trend?.explanation || '超速行为时间趋势',
+            instruction: interpretations?.indicators?.trend?.instruction || '',
+            alert: interpretations?.indicators?.trend?.alert_level || 'yellow'
+        }
+    ];
+    
+    grid.innerHTML = indicators.map(ind => `
+        <div class="indicator-card ${ind.alert ? 'alert-' + ind.alert : ''}">
+            <div class="indicator-label">
+                ${ind.icon} ${ind.label}
+                <span class="info-icon" title="${ind.explanation}">?</span>
+            </div>
+            <div class="indicator-value">${ind.value}</div>
+            <div class="indicator-explanation">${ind.explanation}</div>
+            ${ind.instruction ? `<div class="indicator-instruction">💡 ${ind.instruction}</div>` : ''}
+        </div>
+    `).join('');
+}
+</script>
+

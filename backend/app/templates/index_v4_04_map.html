@@ -1,0 +1,760 @@
+<!-- 地图集成模块 -->
+<section id="mapSection" class="map-section">
+    <h2>🗺️ 空间分析地图</h2>
+    <div class="map-controls">
+        <div class="map-type-selector">
+            <button class="map-type-btn active" data-type="hotspot">热点地图</button>
+            <button class="map-type-btn" data-type="lisa">LISA聚类图</button>
+            <button class="map-type-btn" data-type="evolution">演化模式分布图</button>
+        </div>
+        <div class="map-actions">
+            <button onclick="toggleMapFullscreen()" class="secondary">🔍 全屏</button>
+            <button onclick="captureMapSnapshot()" class="secondary">📸 快照</button>
+            <button onclick="adjustMapHeight()" class="secondary">📏 调整高度</button>
+        </div>
+    </div>
+    <div class="map-wrapper" id="mapWrapper">
+        <div id="mapContainer" style="width: 100%; height: 500px; border-radius: 12px; overflow: hidden; position: relative;">
+            <div id="map" style="width: 100%; height: 100%;"></div>
+            <div id="mapLegend" class="map-legend" style="display: none;">
+                <h4 id="legendTitle">图例</h4>
+                <div id="legendContent"></div>
+            </div>
+        </div>
+        <div class="map-resize-handle" id="mapResizeHandle"></div>
+    </div>
+    <div id="mapStatus" class="status"></div>
+</section>
+
+<script>
+// 地图拖拽调整高度功能
+(function() {
+    const resizeHandle = document.getElementById('mapResizeHandle');
+    const mapContainer = document.getElementById('mapContainer');
+    let isResizing = false;
+    let startY = 0;
+    let startHeight = 0;
+    
+    if (resizeHandle && mapContainer) {
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startY = e.clientY;
+            startHeight = parseInt(window.getComputedStyle(mapContainer).height, 10);
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            e.preventDefault();
+        });
+        
+        function handleMouseMove(e) {
+            if (!isResizing) return;
+            const diff = startY - e.clientY; // 向上拖拽增加高度
+            const newHeight = Math.max(300, Math.min(1000, startHeight + diff));
+            mapContainer.style.height = newHeight + 'px';
+            if (map) {
+                setTimeout(() => map.invalidateSize(), 10);
+            }
+        }
+        
+        function handleMouseUp() {
+            isResizing = false;
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        }
+    }
+})();
+</script>
+
+<style>
+.map-section {
+    grid-column: 1 / -1;
+}
+.map-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.map-type-selector {
+    display: flex;
+    gap: 8px;
+    background: #f8faff;
+    padding: 4px;
+    border-radius: 8px;
+}
+.map-type-btn {
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: #5b6da7;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+.map-type-btn:hover {
+    background: rgba(22,93,255,0.1);
+    color: #165DFF;
+}
+.map-type-btn.active {
+    background: #165DFF;
+    color: white;
+    font-weight: 600;
+}
+.map-actions {
+    display: flex;
+    gap: 8px;
+}
+.map-wrapper {
+    position: relative;
+}
+.map-legend {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid #165DFF;
+    border-radius: 8px;
+    padding: 12px 16px;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 200px;
+    max-width: 300px;
+}
+.map-legend h4 {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    font-weight: bold;
+    color: #165DFF;
+    border-bottom: 1px solid #E8F3FF;
+    padding-bottom: 6px;
+}
+.map-resize-handle {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 8px;
+    cursor: ns-resize;
+    background: rgba(22,93,255,0.1);
+    border-radius: 0 0 12px 12px;
+    display: none;
+}
+.map-wrapper:hover .map-resize-handle {
+    display: block;
+}
+.map-resize-handle:hover {
+    background: rgba(22,93,255,0.2);
+}
+.map-fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    background: white;
+}
+.map-fullscreen #mapContainer {
+    height: 100vh !important;
+    border-radius: 0;
+}
+</style>
+
+<!-- Leaflet库已在主HTML中加载，这里不再重复加载 -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+let map = null;
+let currentMapType = 'hotspot';
+let hotspotLayer = null;
+let lisaLayer = null;
+let evolutionLayer = null;
+let isFullscreen = false;
+let isResizing = false;
+
+// 初始化地图
+function initMap() {
+    if (map) {
+        console.log('地图已初始化');
+        return;
+    }
+    
+    // 检查Leaflet库是否加载
+    if (typeof L === 'undefined' || typeof L.map === 'undefined') {
+        console.error('Leaflet库未加载，无法初始化地图');
+        const statusEl = document.getElementById('mapStatus');
+        if (statusEl) {
+            setStatus(statusEl, '地图库未加载，请刷新页面重试', false);
+        }
+        // 延迟重试
+        setTimeout(() => {
+            if (typeof L !== 'undefined' && typeof L.map !== 'undefined') {
+                initMap();
+            }
+        }, 1000);
+        return;
+    }
+    
+    const mapEl = document.getElementById('map');
+    if (!mapEl) {
+        console.error('地图容器未找到，延迟初始化...');
+        setTimeout(initMap, 500);
+        return;
+    }
+    
+    try {
+        // 高德地图使用Web Mercator坐标系（EPSG:3857），Leaflet默认就是此坐标系
+        map = L.map('map', {
+            center: [28.194, 113.019],
+            zoom: 13
+        });
+        
+        // 使用高德地图标准路网底图（Web Mercator坐标系）
+        // 注意：高德地图瓦片服务使用Web Mercator (EPSG:3857)，Leaflet默认就是此坐标系
+        L.tileLayer(
+            'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+            {
+                subdomains: ['1', '2', '3', '4'],
+                attribution: '&copy; 高德地图',
+                maxZoom: 18,
+                minZoom: 3,
+                tileSize: 256,
+                zoomOffset: 0
+            }
+        ).addTo(map);
+        
+        hotspotLayer = L.layerGroup().addTo(map);
+        lisaLayer = L.layerGroup().addTo(map);
+        evolutionLayer = L.layerGroup().addTo(map);
+        
+        // 确保地图尺寸正确
+        setTimeout(() => {
+            if (map) {
+                map.invalidateSize();
+            }
+        }, 100);
+        
+        // 等待地图加载完成后再加载数据
+        map.whenReady(() => {
+            console.log('地图加载完成，开始加载热点数据');
+            // 延迟加载数据，确保地图完全渲染
+            setTimeout(() => {
+                if (typeof loadHotspotMap === 'function') {
+                    loadHotspotMap();
+                }
+            }, 300);
+        });
+    } catch (err) {
+        console.error('地图初始化失败：', err);
+        const statusEl = document.getElementById('mapStatus');
+        if (statusEl) {
+            setStatus(statusEl, '地图初始化失败：' + err.message, false);
+        }
+    }
+}
+
+// 确保函数在全局作用域
+window.initMap = initMap;
+window.loadHotspotMap = loadHotspotMap;
+window.loadLISAMap = loadLISAMap;
+window.loadEvolutionMap = loadEvolutionMap;
+window.switchMapType = switchMapType;
+window.bindMapTypeButtons = bindMapTypeButtons;
+
+// 地图类型切换事件绑定（延迟绑定，确保DOM已加载）
+function bindMapTypeButtons() {
+    const buttons = document.querySelectorAll('.map-type-btn');
+    if (buttons.length === 0) {
+        // 如果按钮还没加载，延迟重试
+        setTimeout(bindMapTypeButtons, 200);
+        return;
+    }
+    
+    buttons.forEach(btn => {
+        // 移除旧的事件监听器（如果存在）
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        // 添加新的事件监听器
+        newBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const type = newBtn.dataset.type;
+            console.log('切换地图类型：', type);
+            
+            // 更新按钮状态
+            document.querySelectorAll('.map-type-btn').forEach(b => b.classList.remove('active'));
+            newBtn.classList.add('active');
+            
+            // 切换地图
+            if (typeof switchMapType === 'function') {
+                switchMapType(type);
+            } else {
+                console.error('switchMapType函数未定义');
+            }
+        });
+    });
+    
+    console.log('地图类型按钮事件绑定完成，共', buttons.length, '个按钮');
+}
+
+// 延迟绑定，确保DOM和模块都已加载
+setTimeout(bindMapTypeButtons, 500);
+
+// 切换地图类型
+async function switchMapType(type) {
+    console.log('switchMapType被调用，类型：', type);
+    currentMapType = type;
+    
+    // 确保地图已初始化
+    if (!map) {
+        console.warn('地图未初始化，尝试初始化...');
+        if (typeof initMap === 'function') {
+            initMap();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (!map) {
+                console.error('地图初始化失败');
+                const statusEl = document.getElementById('mapStatus');
+                if (statusEl) {
+                    setStatus(statusEl, '地图初始化失败，请刷新页面重试', false);
+                }
+                return;
+            }
+        } else {
+            console.error('initMap函数未定义');
+            return;
+        }
+    }
+    
+    // 清除所有图层
+    if (hotspotLayer) hotspotLayer.clearLayers();
+    if (lisaLayer) lisaLayer.clearLayers();
+    if (evolutionLayer) evolutionLayer.clearLayers();
+    
+    const statusEl = document.getElementById('mapStatus');
+    try {
+        setStatus(statusEl, '正在加载地图数据...', true);
+        
+        if (type === 'hotspot') {
+            await loadHotspotMap();
+        } else if (type === 'lisa') {
+            await loadLISAMap();
+        } else if (type === 'evolution') {
+            await loadEvolutionMap();
+        } else {
+            throw new Error('未知的地图类型：' + type);
+        }
+        
+        setStatus(statusEl, '地图加载成功', true);
+    } catch (err) {
+        console.error('地图切换失败：', err);
+        setStatus(statusEl, '地图加载失败：' + err.message, false);
+    }
+}
+
+// 加载热点地图
+async function loadHotspotMap() {
+    // 检查Leaflet库
+    if (typeof L === 'undefined' || typeof L.map === 'undefined') {
+        console.error('Leaflet库未加载');
+        const statusEl = document.getElementById('mapStatus');
+        if (statusEl) {
+            setStatus(statusEl, '地图库未加载，请刷新页面重试', false);
+        }
+        return;
+    }
+    
+    if (!map) {
+        console.warn('地图未初始化，尝试初始化...');
+        if (typeof initMap === 'function') {
+            initMap();
+            // 等待地图初始化完成
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (!map) {
+                console.error('地图初始化失败');
+                const statusEl = document.getElementById('mapStatus');
+                if (statusEl) {
+                    setStatus(statusEl, '地图初始化失败，请刷新页面重试', false);
+                }
+                return;
+            }
+        } else {
+            console.error('initMap函数未定义');
+            return;
+        }
+    }
+    
+    try {
+        const resp = await fetch('/api/hotspots/geojson');
+        if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        }
+        const geojson = await resp.json();
+        
+        if (!geojson || !geojson.features || geojson.features.length === 0) {
+            console.warn('没有热点数据');
+            setStatus(document.getElementById('mapStatus'), '暂无热点数据，请先执行分析', false);
+            return;
+        }
+        
+        geojson.features.forEach(feature => {
+        const props = feature.properties;
+        const riskLevel = props.risk_level || 'low';
+        const color = riskLevel === 'high' ? '#d93025' : riskLevel === 'medium' ? '#f9a825' : '#ffc107';
+        
+        L.geoJSON(feature, {
+            style: {
+                fillColor: color,
+                fillOpacity: 0.6,
+                color: color,
+                weight: 2
+            },
+            onEachFeature: (feature, layer) => {
+                layer.bindPopup(`
+                    <div class="popup-title">${props.area_name || '热点区域'}</div>
+                    <div>风险等级: ${riskLevel}</div>
+                    <div>Z值: ${props.gi_score?.toFixed(2) || '-'}</div>
+                    <div>轨迹数: ${props.trajectory_count || '-'}</div>
+                `);
+            }
+        }).addTo(hotspotLayer);
+    });
+    
+        showLegend('热点地图', [
+            { color: '#d93025', label: '高风险' },
+            { color: '#f9a825', label: '中风险' },
+            { color: '#ffc107', label: '低风险' }
+        ]);
+        
+        // 自动调整地图视野
+        if (geojson.features.length > 0) {
+            const bounds = L.geoJSON(geojson).getBounds();
+            map.fitBounds(bounds, { padding: [20, 20] });
+        }
+    } catch (err) {
+        console.error('加载热点地图失败：', err);
+        setStatus(document.getElementById('mapStatus'), '地图加载失败：' + err.message, false);
+    }
+}
+
+// 加载LISA聚类图
+async function loadLISAMap() {
+    // 检查Leaflet库
+    if (typeof L === 'undefined' || typeof L.map === 'undefined') {
+        console.error('Leaflet库未加载');
+        return;
+    }
+    
+    if (!map) {
+        console.warn('地图未初始化，尝试初始化...');
+        if (typeof initMap === 'function') {
+            initMap();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (!map) {
+                console.error('地图初始化失败');
+                return;
+            }
+        } else {
+            console.error('initMap函数未定义');
+            return;
+        }
+    }
+    
+    try {
+        const resp = await fetch('/api/visualizations/lisa-cluster/geojson');
+        if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        }
+        const geojson = await resp.json();
+        
+        if (!geojson || !geojson.features || geojson.features.length === 0) {
+            console.warn('没有LISA聚类数据');
+            setStatus(document.getElementById('mapStatus'), '暂无LISA聚类数据，请先执行分析', false);
+            return;
+        }
+    
+    // 后端返回的是中文标签：'高-高', '高-低', '低-高', '低-低', '不具有显著性'
+    const colorMap = {
+        '高-高': '#d93025',
+        '高-低': '#f9a825',
+        '低-高': '#90caf9',
+        '低-低': '#4caf50',
+        '不具有显著性': '#9e9e9e'
+    };
+    
+    geojson.features.forEach(feature => {
+        const clusterLabel = feature.properties.cluster_label || '不具有显著性';
+        const color = colorMap[clusterLabel] || '#9e9e9e';
+        
+        L.geoJSON(feature, {
+            style: {
+                fillColor: color,
+                fillOpacity: 0.6,
+                color: color,
+                weight: 2
+            },
+            onEachFeature: (feature, layer) => {
+                const props = feature.properties;
+                layer.bindPopup(`
+                    <div class="popup-title">LISA聚类</div>
+                    <div>网格ID: ${props.grid_id || '-'}</div>
+                    <div>聚类模式: ${props.cluster_label || '不具有显著性'}</div>
+                    <div>超速次数: ${props.overspeed_count || 0}</div>
+                    <div>轨迹数: ${props.trajectory_count || 0}</div>
+                `);
+            }
+        }).addTo(lisaLayer);
+    });
+    
+        showLegend('LISA聚类图', [
+            { color: '#d93025', label: '高-高聚类' },
+            { color: '#f9a825', label: '高-低异常值' },
+            { color: '#90caf9', label: '低-高异常值' },
+            { color: '#4caf50', label: '低-低聚类' },
+            { color: '#9e9e9e', label: '不具有显著性' }
+        ]);
+        
+        // 自动调整地图视野
+        if (geojson.features.length > 0) {
+            const bounds = L.geoJSON(geojson).getBounds();
+            map.fitBounds(bounds, { padding: [20, 20] });
+        }
+    } catch (err) {
+        console.error('加载LISA聚类图失败：', err);
+        setStatus(document.getElementById('mapStatus'), '地图加载失败：' + err.message, false);
+    }
+}
+
+// 加载演化模式分布图
+async function loadEvolutionMap() {
+    // 检查Leaflet库
+    if (typeof L === 'undefined' || typeof L.map === 'undefined') {
+        console.error('Leaflet库未加载');
+        return;
+    }
+    
+    if (!map) {
+        console.warn('地图未初始化，尝试初始化...');
+        if (typeof initMap === 'function') {
+            initMap();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (!map) {
+                console.error('地图初始化失败');
+                return;
+            }
+        } else {
+            console.error('initMap函数未定义');
+            return;
+        }
+    }
+    
+    try {
+        const resp = await fetch('/api/visualizations/evolution-pattern/geojson');
+        if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        }
+        const geojson = await resp.json();
+        
+        if (!geojson || !geojson.features || geojson.features.length === 0) {
+            console.warn('没有演化模式数据');
+            setStatus(document.getElementById('mapStatus'), '暂无演化模式数据，请先执行分析', false);
+            return;
+        }
+    
+    // 后端返回的是中文标签：'振荡热点', '新增热点', '加强的热点', '逐渐减少的热点', '持续的热点'
+    const colorMap = {
+        '振荡热点': '#9c27b0',  // 紫色
+        '新增热点': '#ff9800',  // 橙色
+        '加强的热点': '#d32f2f',  // 深红色
+        '逐渐减少的热点': '#f06292',  // 粉红色
+        '持续的热点': '#1976d2'  // 蓝色
+    };
+    
+    geojson.features.forEach(feature => {
+        const props = feature.properties;
+        const pattern = props.evolution_pattern || props.pattern || '振荡热点';
+        // 如果后端提供了pattern_color，优先使用
+        const color = props.pattern_color || colorMap[pattern] || '#9e9e9e';
+        
+        L.geoJSON(feature, {
+            style: {
+                fillColor: color,
+                fillOpacity: 0.6,
+                color: color,
+                weight: 2
+            },
+            onEachFeature: (feature, layer) => {
+                const props = feature.properties;
+                layer.bindPopup(`
+                    <div class="popup-title">演化模式</div>
+                    <div>区域名称: ${props.area_name || '-'}</div>
+                    <div>演化模式: ${props.evolution_pattern || props.pattern || '振荡热点'}</div>
+                    <div>风险等级: ${props.risk_level || '-'}</div>
+                    <div>Gi* Z值: ${props.gi_score || props.gi_z || '-'}</div>
+                `);
+            }
+        }).addTo(evolutionLayer);
+    });
+    
+        showLegend('演化模式分布图', [
+            { color: '#9c27b0', label: '振荡热点' },
+            { color: '#ff9800', label: '新增热点' },
+            { color: '#d32f2f', label: '加强的热点' },
+            { color: '#f06292', label: '逐渐减少的热点' },
+            { color: '#1976d2', label: '持续的热点' }
+        ]);
+        
+        // 自动调整地图视野
+        if (geojson.features.length > 0) {
+            const bounds = L.geoJSON(geojson).getBounds();
+            map.fitBounds(bounds, { padding: [20, 20] });
+        }
+    } catch (err) {
+        console.error('加载演化模式分布图失败：', err);
+        setStatus(document.getElementById('mapStatus'), '地图加载失败：' + err.message, false);
+    }
+}
+
+// 显示图例
+function showLegend(title, items) {
+    const legendEl = document.getElementById('mapLegend');
+    const titleEl = document.getElementById('legendTitle');
+    const contentEl = document.getElementById('legendContent');
+    
+    titleEl.textContent = title;
+    contentEl.innerHTML = items.map(item => `
+        <div style="display: flex; align-items: center; margin: 6px 0; font-size: 13px;">
+            <span style="display: inline-block; width: 20px; height: 16px; background: ${item.color}; border: 1px solid #666; border-radius: 3px; margin-right: 8px;"></span>
+            ${item.label}
+        </div>
+    `).join('');
+    
+    legendEl.style.display = 'block';
+}
+
+// 全屏切换
+function toggleMapFullscreen() {
+    const wrapper = document.getElementById('mapWrapper');
+    const btn = event?.target || document.querySelector('[onclick="toggleMapFullscreen()"]');
+    
+    if (!isFullscreen) {
+        wrapper.classList.add('map-fullscreen');
+        isFullscreen = true;
+        if (btn) btn.textContent = '🔍 退出全屏';
+        setTimeout(() => {
+            if (map) map.invalidateSize();
+        }, 100);
+        
+        // 添加ESC键退出全屏
+        const escHandler = (e) => {
+            if (e.key === 'Escape' && isFullscreen) {
+                toggleMapFullscreen();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    } else {
+        wrapper.classList.remove('map-fullscreen');
+        isFullscreen = false;
+        if (btn) btn.textContent = '🔍 全屏';
+        setTimeout(() => {
+            if (map) map.invalidateSize();
+        }, 100);
+    }
+}
+
+// 地图快照
+async function captureMapSnapshot() {
+    const statusEl = document.getElementById('mapStatus');
+    try {
+        setStatus(statusEl, '正在生成快照...', true);
+        
+        // 等待html2canvas库加载
+        if (typeof html2canvas === 'undefined') {
+            // 尝试动态加载
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+            script.onload = () => captureMapSnapshot();
+            script.onerror = () => {
+                setStatus(statusEl, '快照库加载失败，请刷新页面重试', false);
+            };
+            document.head.appendChild(script);
+            return;
+        }
+        
+        const mapContainer = document.getElementById('mapContainer');
+        if (!mapContainer) {
+            throw new Error('地图容器未找到');
+        }
+        
+        const canvas = await html2canvas(mapContainer, {
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            scale: 2,
+            logging: false
+        });
+        
+        // 转换为blob并上传
+        canvas.toBlob(async (blob) => {
+            if (!blob) {
+                throw new Error('快照生成失败');
+            }
+            
+            const formData = new FormData();
+            formData.append('image', blob, `snapshot_${currentMapType}_${Date.now()}.png`);
+            formData.append('map_type', currentMapType);
+            
+            try {
+                const resp = await fetch('/api/snapshots/create', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await resp.json();
+                
+                if (resp.ok && data.success) {
+                    setStatus(statusEl, '快照已保存', true);
+                    // 提供下载链接
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `map_snapshot_${currentMapType}_${Date.now()}.png`;
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                } else {
+                    throw new Error(data.error || '上传失败');
+                }
+            } catch (uploadErr) {
+                // 即使上传失败，也提供本地下载
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `map_snapshot_${currentMapType}_${Date.now()}.png`;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 100);
+                setStatus(statusEl, '快照已下载（上传失败：' + uploadErr.message + '）', false);
+            }
+        }, 'image/png');
+    } catch (err) {
+        setStatus(statusEl, '快照生成失败：' + err.message, false);
+    }
+}
+
+// 调整地图高度
+function adjustMapHeight() {
+    const container = document.getElementById('mapContainer');
+    const currentHeight = parseInt(container.style.height) || 500;
+    const newHeight = prompt('请输入地图高度（像素）：', currentHeight);
+    if (newHeight && !isNaN(newHeight)) {
+        container.style.height = newHeight + 'px';
+        setTimeout(() => map.invalidateSize(), 100);
+    }
+}
+
+// 确保showLegend在全局作用域
+window.showLegend = showLegend;
+window.toggleMapFullscreen = toggleMapFullscreen;
+window.captureMapSnapshot = captureMapSnapshot;
+window.adjustMapHeight = adjustMapHeight;
+</script>
+

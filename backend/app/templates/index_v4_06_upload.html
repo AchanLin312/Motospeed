@@ -1,0 +1,645 @@
+<!-- 上传和反馈模块 -->
+<section id="uploadSection" class="upload-section">
+    <h2>📁 数据上传与反馈</h2>
+    <div class="upload-tabs">
+        <button class="upload-tab-btn active" data-tab="trajectory">轨迹数据</button>
+        <button class="upload-tab-btn" data-tab="image">图片上传</button>
+        <button class="upload-tab-btn" data-tab="feedback">现场反馈</button>
+    </div>
+    <div class="upload-content">
+        <!-- 轨迹数据上传 -->
+        <div class="upload-tab-panel active" id="trajectory-panel">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="upload-area">
+                    <input type="file" name="file" id="trajectoryFile" accept=".csv" required />
+                    <label for="trajectoryFile" class="upload-label">
+                        <span>📄 选择CSV文件</span>
+                        <span class="upload-hint">支持轨迹数据CSV格式</span>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit">开始上传</button>
+                    <button type="button" onclick="loadSummary()" class="secondary">读取最新分析</button>
+                </div>
+            </form>
+            <div id="uploadStatus" class="status"></div>
+            
+            <!-- 分析参数设置 -->
+            <div class="analysis-params" id="analysisParamsPanel" style="margin-top: 24px; padding: 20px; background: #f8faff; border-radius: 12px; border: 1px solid #e2e8ff;">
+                <h3 style="margin: 0 0 16px; font-size: 16px; color: #165DFF;">⚙️ 分析参数设置</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>超速阈值 (km/h)</label>
+                        <input type="number" id="overspeedThreshold" value="20" min="1" max="100" step="1" />
+                        <small style="color: #7a8ba8; font-size: 12px;">默认：20 km/h（论文设定值）</small>
+                    </div>
+                    <div class="form-group">
+                        <label>网格大小 (度)</label>
+                        <input type="number" id="cellSizeDeg" value="0.0045" min="0.001" max="0.01" step="0.0005" />
+                        <small style="color: #7a8ba8; font-size: 12px;">默认：0.0045度（约500m×500m）</small>
+                    </div>
+                </div>
+                <div class="form-actions" style="margin-top: 16px;">
+                    <button type="button" onclick="triggerAnalysisWithParams()" style="background: #165DFF; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                        🔍 执行风险分析
+                    </button>
+                    <button type="button" onclick="resetAnalysisParams()" class="secondary">重置为默认值</button>
+                </div>
+                <div id="analysisParamsStatus" class="status" style="margin-top: 12px;"></div>
+            </div>
+        </div>
+        
+        <!-- 图片上传 -->
+        <div class="upload-tab-panel" id="image-panel">
+            <form id="imageUploadForm" enctype="multipart/form-data">
+                <div class="upload-area">
+                    <input type="file" name="file" id="imageFile" accept=".jpg,.jpeg,.png,.bmp,.gif" multiple />
+                    <label for="imageFile" class="upload-label">
+                        <span>🖼️ 选择图片文件</span>
+                        <span class="upload-hint">支持JPG、PNG、BMP、GIF格式，可多选</span>
+                    </label>
+                </div>
+                <div class="image-preview" id="imagePreview"></div>
+                <div class="form-actions">
+                    <button type="submit">上传图片</button>
+                    <button type="button" onclick="listImages()" class="secondary">查看已上传</button>
+                </div>
+            </form>
+            <div id="imageStatus" class="status"></div>
+        </div>
+        
+        <!-- 现场反馈 -->
+        <div class="upload-tab-panel" id="feedback-panel">
+            <form id="feedbackForm">
+                <div class="form-group">
+                    <label>关联热点ID（可选）</label>
+                    <input type="text" id="feedbackArea" placeholder="热点区域ID" />
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>经度</label>
+                        <input type="number" id="feedbackLon" placeholder="113.0" step="0.0001" />
+                    </div>
+                    <div class="form-group">
+                        <label>纬度</label>
+                        <input type="number" id="feedbackLat" placeholder="28.1" step="0.0001" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>反馈内容</label>
+                    <textarea id="feedbackContent" rows="4" placeholder="现场情况/处置建议" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>上传现场图片（可选）</label>
+                    <input type="file" id="feedbackImage" accept=".jpg,.jpeg,.png" />
+                </div>
+                <div class="form-actions">
+                    <button type="submit">提交反馈</button>
+                    <button type="button" onclick="viewFeedbackHistory()" class="secondary">查看历史</button>
+                </div>
+            </form>
+            <div id="feedbackStatus" class="status"></div>
+        </div>
+    </div>
+</section>
+
+<style>
+.upload-section {
+    grid-column: 1 / -1;
+}
+.upload-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #e2e8ff;
+}
+.upload-tab-btn {
+    padding: 10px 20px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #5b6da7;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+.upload-tab-btn:hover {
+    color: #165DFF;
+    background: rgba(22,93,255,0.05);
+}
+.upload-tab-btn.active {
+    color: #165DFF;
+    border-bottom-color: #165DFF;
+    font-weight: 600;
+}
+.upload-tab-panel {
+    display: none;
+}
+.upload-tab-panel.active {
+    display: block;
+}
+.upload-area {
+    border: 2px dashed #a3b5ff;
+    border-radius: 12px;
+    padding: 40px;
+    text-align: center;
+    background: #f8faff;
+    margin-bottom: 16px;
+    transition: all 0.3s;
+}
+.upload-area:hover {
+    border-color: #165DFF;
+    background: #f0f7ff;
+}
+.upload-area input[type="file"] {
+    display: none;
+}
+.upload-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+.upload-label span:first-child {
+    font-size: 18px;
+    color: #165DFF;
+    font-weight: 600;
+}
+.upload-hint {
+    font-size: 12px;
+    color: #7a8ba8;
+}
+.image-preview {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.image-preview-item {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    aspect-ratio: 1;
+}
+.image-preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.image-preview-item .remove-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(217,48,37,0.8);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 14px;
+}
+.form-group {
+    margin-bottom: 16px;
+}
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: #5b6da7;
+    font-weight: 500;
+}
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+}
+</style>
+
+<script>
+// 上传标签切换
+document.querySelectorAll('.upload-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tabName = btn.dataset.tab;
+        document.querySelectorAll('.upload-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.upload-tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const panel = document.getElementById(tabName + '-panel');
+        if (panel) {
+            panel.classList.add('active');
+        }
+        // 确保分析参数设置面板始终可见（在轨迹数据标签激活时）
+        const paramsPanel = document.getElementById('analysisParamsPanel');
+        if (paramsPanel) {
+            if (tabName === 'trajectory') {
+                paramsPanel.style.display = 'block';
+            } else {
+                paramsPanel.style.display = 'none';
+            }
+        }
+    });
+});
+
+// 轨迹数据上传
+document.getElementById('uploadForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const statusEl = document.getElementById('uploadStatus');
+    try {
+        setStatus(statusEl, '正在上传...', true);
+        const resp = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            setStatus(statusEl, `上传成功：共 ${data.uploaded_rows || 0} 行`, true);
+            // 上传成功后提示用户执行分析
+            setTimeout(() => {
+                if (confirm('数据上传成功！是否立即执行风险分析？\n\n提示：您可以在"分析参数设置"中调整超速阈值和网格大小，然后点击"执行风险分析"按钮。')) {
+                    // 触发分析（使用当前设置的参数）
+                    if (typeof triggerAnalysisWithParams === 'function') {
+                        triggerAnalysisWithParams();
+                    } else if (typeof triggerAnalysis === 'function') {
+                        triggerAnalysis();
+                    }
+                }
+            }, 500);
+        } else {
+            throw new Error(data.error || '上传失败');
+        }
+    } catch (err) {
+        setStatus(statusEl, '上传失败：' + err.message, false);
+    }
+});
+
+// 图片上传
+const imageFiles = [];
+document.getElementById('imageFile')?.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    imageFiles.length = 0;
+    imageFiles.push(...files);
+    renderImagePreview();
+});
+
+function renderImagePreview() {
+    const previewEl = document.getElementById('imagePreview');
+    previewEl.innerHTML = imageFiles.map((file, idx) => {
+        const url = URL.createObjectURL(file);
+        return `
+            <div class="image-preview-item">
+                <img src="${url}" alt="${file.name}" />
+                <button class="remove-btn" onclick="removeImage(${idx})">×</button>
+            </div>
+        `;
+    }).join('');
+}
+
+function removeImage(idx) {
+    imageFiles.splice(idx, 1);
+    renderImagePreview();
+}
+
+document.getElementById('imageUploadForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const statusEl = document.getElementById('imageStatus');
+    try {
+        setStatus(statusEl, '正在上传图片...', true);
+        for (const file of imageFiles) {
+            const formData = new FormData();
+            formData.append('file', file);
+            const resp = await fetch('/api/upload/image', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || '上传失败');
+        }
+        setStatus(statusEl, `成功上传 ${imageFiles.length} 张图片`, true);
+        imageFiles.length = 0;
+        renderImagePreview();
+    } catch (err) {
+        setStatus(statusEl, '上传失败：' + err.message, false);
+    }
+});
+
+// 反馈提交
+document.getElementById('feedbackForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append('content', document.getElementById('feedbackContent').value);
+    formData.append('lon', document.getElementById('feedbackLon').value);
+    formData.append('lat', document.getElementById('feedbackLat').value);
+    formData.append('area_id', document.getElementById('feedbackArea').value || '');
+    
+    const imageFile = document.getElementById('feedbackImage').files[0];
+    if (imageFile) {
+        formData.append('photo', imageFile);
+    }
+    
+    const statusEl = document.getElementById('feedbackStatus');
+    try {
+        setStatus(statusEl, '提交中...', true);
+        const resp = await fetch('/api/feedback', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            setStatus(statusEl, '反馈提交成功，ID：' + (data.feedback_id || 'N/A'), true);
+            e.target.reset();
+        } else {
+            throw new Error(data.error || '提交失败');
+        }
+    } catch (err) {
+        setStatus(statusEl, '提交失败：' + err.message, false);
+    }
+});
+
+async function listImages() {
+    try {
+        const resp = await fetch('/api/upload/images');
+        const data = await resp.json();
+        const images = data.images || [];
+        
+        if (images.length === 0) {
+            alert('暂无已上传的图片');
+            return;
+        }
+        
+        // 创建图片列表弹窗
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); z-index: 10000;
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+        `;
+        modal.innerHTML = `
+            <div style="background: white; border-radius: 12px; padding: 24px; max-width: 800px; max-height: 80vh; overflow-y: auto;">
+                <h3 style="margin: 0 0 16px;">已上传图片 (${images.length}张)</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;">
+                    ${images.map(img => {
+                        // 优先使用缩略图，如果没有则使用原图
+                        let imgSrc = '';
+                        if (img.thumbnail) {
+                            // 提取文件名
+                            const thumbName = img.thumbnail.split(/[\\/]/).pop();
+                            imgSrc = `/uploads/images/${encodeURIComponent(thumbName)}`;
+                        } else if (img.filepath) {
+                            const fileName = img.filepath.split(/[\\/]/).pop();
+                            imgSrc = `/uploads/images/${encodeURIComponent(fileName)}`;
+                        } else if (img.filename) {
+                            imgSrc = `/uploads/images/${encodeURIComponent(img.filename)}`;
+                        }
+                        const fileName = img.filename || (img.filepath ? img.filepath.split(/[\\/]/).pop() : '未知');
+                        return `
+                        <div style="border: 1px solid #e2e8ff; border-radius: 8px; padding: 12px; background: #f8faff; position: relative;">
+                            <button onclick="deleteImage('${img.filename}', this)" 
+                                    style="position: absolute; top: 8px; right: 8px; background: #d93025; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 16px; line-height: 1; display: flex; align-items: center; justify-content: center; z-index: 10;"
+                                    title="删除图片">×</button>
+                            <img src="${imgSrc}" 
+                                 style="width: 100%; height: 150px; object-fit: cover; border-radius: 4px; cursor: pointer;"
+                                 onclick="window.open('${imgSrc}', '_blank')"
+                                 onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'200\\' height=\\'150\\'%3E%3Crect width=\\'200\\' height=\\'150\\' fill=\\'%23f0f0f0\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\' font-size=\\'14\\' fill=\\'%23999\\'%3E图片加载失败%3C/text%3E%3C/svg%3E'">
+                            <p style="margin: 8px 0 0; font-size: 12px; color: #5b6da7; word-break: break-all; font-weight: 500;">${fileName}</p>
+                            <p style="margin: 4px 0 0; font-size: 11px; color: #7a8ba8;">${img.size ? (img.size / 1024).toFixed(1) + ' KB' : '大小未知'}</p>
+                        </div>
+                    `;
+                    }).join('')}
+                </div>
+                <button onclick="this.closest('div[style*=\\'position: fixed\\']').remove()" 
+                        style="margin-top: 16px; padding: 8px 16px; background: #165DFF; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    关闭
+                </button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    } catch (err) {
+        alert('获取图片列表失败：' + err.message);
+    }
+}
+
+async function viewFeedbackHistory() {
+    try {
+        const resp = await fetch('/api/feedback/history');
+        if (!resp.ok) {
+            // 如果返回HTML（可能是错误页面），尝试解析JSON错误
+            const text = await resp.text();
+            try {
+                const json = JSON.parse(text);
+                throw new Error(json.error || '获取反馈历史失败');
+            } catch (e) {
+                throw new Error('服务器返回了非JSON格式的响应');
+            }
+        }
+        const data = await resp.json();
+        const feedbacks = data.feedbacks || [];
+        
+        if (feedbacks.length === 0) {
+            alert('暂无反馈记录');
+            return;
+        }
+        
+        // 创建反馈历史弹窗
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); z-index: 10000;
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+        `;
+        modal.innerHTML = `
+            <div style="background: white; border-radius: 12px; padding: 24px; max-width: 900px; max-height: 80vh; overflow-y: auto;">
+                <h3 style="margin: 0 0 16px;">反馈历史 (${feedbacks.length}条)</h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead>
+                        <tr style="background: #f8faff; border-bottom: 2px solid #e2e8ff;">
+                            <th style="padding: 10px; text-align: left;">时间</th>
+                            <th style="padding: 10px; text-align: left;">位置</th>
+                            <th style="padding: 10px; text-align: left;">内容</th>
+                            <th style="padding: 10px; text-align: left;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${feedbacks.map(fb => {
+                            let timeStr = '-';
+                            if (fb.timestamp) {
+                                try {
+                                    const ts = typeof fb.timestamp === 'number' ? fb.timestamp : parseFloat(fb.timestamp);
+                                    if (!isNaN(ts) && ts > 0) {
+                                        timeStr = new Date(ts * 1000).toLocaleString('zh-CN');
+                                    } else if (typeof fb.timestamp === 'string') {
+                                        timeStr = fb.timestamp;
+                                    }
+                                } catch (e) {
+                                    timeStr = String(fb.timestamp);
+                                }
+                            }
+                            return `
+                            <tr style="border-bottom: 1px solid #e2e8ff;">
+                                <td style="padding: 10px;">${timeStr}</td>
+                                <td style="padding: 10px;">${fb.lon && fb.lat ? `${parseFloat(fb.lon).toFixed(4)}, ${parseFloat(fb.lat).toFixed(4)}` : '-'}</td>
+                                <td style="padding: 10px; max-width: 300px; word-break: break-word;">${fb.content || '-'}</td>
+                                <td style="padding: 10px;">
+                                    ${fb.photo_path ? (() => {
+                                        // 提取文件名
+                                        const fileName = fb.photo_path.split(/[\\/]/).pop();
+                                        const imgUrl = `/uploads/feedback/${encodeURIComponent(fileName)}`;
+                                        return `<a href="${imgUrl}" target="_blank" style="color: #165DFF; text-decoration: none; margin-right: 8px;">查看图片</a>`;
+                                    })() : ''}
+                                    <button onclick="deleteFeedback('${fb.feedback_id}', this)" 
+                                            style="background: #d93025; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px;"
+                                            title="删除反馈">×</button>
+                                </td>
+                            </tr>
+                        `;
+                        }).join('')}
+                    </tbody>
+                </table>
+                <button onclick="this.closest('div[style*=\\'position: fixed\\']').remove()" 
+                        style="margin-top: 16px; padding: 8px 16px; background: #165DFF; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    关闭
+                </button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    } catch (err) {
+        alert('获取反馈历史失败：' + err.message);
+    }
+}
+
+// 触发分析（使用参数）
+async function triggerAnalysisWithParams() {
+    const statusEl = document.getElementById('analysisParamsStatus');
+    try {
+        const threshold = parseFloat(document.getElementById('overspeedThreshold').value) || 20;
+        const cellSize = parseFloat(document.getElementById('cellSizeDeg').value) || 0.0045;
+        
+        setStatus(statusEl, '正在执行分析...', true);
+        
+        const resp = await fetch('/api/analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                overspeed_threshold: threshold,
+                cell_size_deg: cellSize
+            })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            setStatus(statusEl, `分析完成！热点数量：${data.hotspot_count || 0}，网格数量：${data.grid_count || 0}`, true);
+            // 刷新页面数据
+            if (typeof loadSummary === 'function') {
+                await loadSummary();
+            }
+            // 刷新地图
+            if (typeof loadHotspotMap === 'function' && typeof map !== 'undefined' && map) {
+                await loadHotspotMap();
+            }
+            // 刷新指令（分析完成后自动生成）
+            setTimeout(async () => {
+                if (typeof loadInstructions === 'function') {
+                    await loadInstructions();
+                }
+            }, 500);
+        } else {
+            throw new Error(data.error || '分析失败');
+        }
+    } catch (err) {
+        setStatus(statusEl, '分析失败：' + err.message, false);
+    }
+}
+
+// 触发分析（默认参数）
+async function triggerAnalysis() {
+    await triggerAnalysisWithParams();
+}
+
+// 重置分析参数
+function resetAnalysisParams() {
+    document.getElementById('overspeedThreshold').value = 20;
+    document.getElementById('cellSizeDeg').value = 0.0045;
+}
+
+// 删除图片
+async function deleteImage(filename, buttonElement) {
+    if (!confirm(`确定要删除图片 "${filename}" 吗？`)) {
+        return;
+    }
+    
+    try {
+        const resp = await fetch(`/api/upload/images/${encodeURIComponent(filename)}`, {
+            method: 'DELETE'
+        });
+        const data = await resp.json();
+        if (resp.ok && data.success) {
+            // 移除图片元素
+            buttonElement.closest('div').remove();
+            // 如果所有图片都删除了，刷新列表
+            const modal = buttonElement.closest('div[style*="position: fixed"]');
+            const imageContainer = modal.querySelector('div[style*="grid-template-columns"]');
+            if (imageContainer && imageContainer.children.length === 0) {
+                modal.remove();
+                alert('所有图片已删除');
+            }
+        } else {
+            throw new Error(data.error || '删除失败');
+        }
+    } catch (err) {
+        alert('删除图片失败：' + err.message);
+    }
+}
+
+// 删除反馈
+async function deleteFeedback(feedbackId, buttonElement) {
+    if (!confirm('确定要删除这条反馈记录吗？')) {
+        return;
+    }
+    
+    try {
+        const resp = await fetch(`/api/feedback/${encodeURIComponent(feedbackId)}`, {
+            method: 'DELETE'
+        });
+        const data = await resp.json();
+        if (resp.ok && data.success) {
+            // 移除表格行
+            buttonElement.closest('tr').remove();
+            // 如果所有反馈都删除了，刷新列表
+            const modal = buttonElement.closest('div[style*="position: fixed"]');
+            const tbody = modal.querySelector('tbody');
+            if (tbody && tbody.children.length === 0) {
+                modal.remove();
+                alert('所有反馈记录已删除');
+            }
+        } else {
+            throw new Error(data.error || '删除失败');
+        }
+    } catch (err) {
+        alert('删除反馈失败：' + err.message);
+    }
+}
+
+// 确保函数在全局作用域
+window.triggerAnalysis = triggerAnalysis;
+window.triggerAnalysisWithParams = triggerAnalysisWithParams;
+window.resetAnalysisParams = resetAnalysisParams;
+window.listImages = listImages;
+window.viewFeedbackHistory = viewFeedbackHistory;
+window.deleteImage = deleteImage;
+window.deleteFeedback = deleteFeedback;
+</script>
+
+

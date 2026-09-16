@@ -1,0 +1,53 @@
+# Docker 忽略文件
+# 减少镜像大小，加快构建速度
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# 虚拟环境
+venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 输出文件（运行时生成）
+outputs/logs/*.csv
+outputs/logs/*.json
+outputs/reports/*.docx
+outputs/reports/*.xlsx
+outputs/charts/*.png
+outputs/visualizations/*.html
+outputs/snapshots/*.png
+outputs/snapshots/*.json
+
+# 临时文件
+*.tmp
+*.log
+.DS_Store
+
+# 文档（可选，如果不需要在镜像中包含）
+说明文档/
+流程图/
+
+# Git
+.git/
+.gitignore
+
+# 打包文件
+*.spec
+dist/
+build/
+

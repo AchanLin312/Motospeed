@@ -1,0 +1,160 @@
+<!-- 主HTML文件：整合所有模块 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数治骑迹</title>
+</head>
+<body>
+    <!-- 加载头部 -->
+    <div id="header-container"></div>
+    
+    <!-- 主内容区域 -->
+    <main id="mainContent">
+        <!-- 核心指标看板 -->
+        <div id="indicators-container"></div>
+        
+        <!-- 图表集成 -->
+        <div id="charts-container"></div>
+        
+        <!-- 地图集成 -->
+        <div id="map-container"></div>
+        
+        <!-- 指令化转译 -->
+        <div id="instructions-container"></div>
+        
+        <!-- 上传和反馈 -->
+        <div id="upload-container"></div>
+    </main>
+    
+    <!-- 通用脚本 -->
+    <script>
+        // 通用工具函数
+        function setStatus(el, message, ok = true) {
+            if (!el) return;
+            el.textContent = message || "";
+            el.className = "status " + (message ? (ok ? "ok" : "err") : "");
+        }
+        
+        async function fetchJSON(url, options = {}) {
+            const resp = await fetch(url, options);
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) throw new Error(data.error || resp.statusText);
+            return data;
+        }
+        
+        // 加载所有模块
+        async function loadModules() {
+            const modules = [
+                { id: 'header-container', file: 'index_v4_01_header.html' },
+                { id: 'indicators-container', file: 'index_v4_02_indicators.html' },
+                { id: 'charts-container', file: 'index_v4_03_charts.html' },
+                { id: 'map-container', file: 'index_v4_04_map.html' },
+                { id: 'instructions-container', file: 'index_v4_05_instructions.html' },
+                { id: 'upload-container', file: 'index_v4_06_upload.html' }
+            ];
+            
+            for (const module of modules) {
+                try {
+                    const resp = await fetch(`/templates/${module.file}`);
+                    const html = await resp.text();
+                    document.getElementById(module.id).innerHTML = html;
+                    
+                    // 执行模块中的脚本
+                    const scripts = document.getElementById(module.id).querySelectorAll('script');
+                    scripts.forEach(script => {
+                        const newScript = document.createElement('script');
+                        newScript.textContent = script.textContent;
+                        document.body.appendChild(newScript);
+                    });
+                } catch (err) {
+                    console.error(`加载模块 ${module.file} 失败：`, err);
+                }
+            }
+            
+            // 初始化
+            await initApp();
+        }
+        
+        // 初始化应用
+        async function initApp() {
+            // 加载分析结果
+            await loadSummary();
+            
+            // 加载指令
+            if (typeof loadInstructions === 'function') {
+                await loadInstructions();
+            }
+            
+            // 初始化地图
+            if (typeof initMap === 'function') {
+                initMap();
+            }
+        }
+        
+        // 加载分析摘要
+        async function loadSummary() {
+            try {
+                const result = await fetchJSON('/api/analysis');
+                if (typeof renderIndicators === 'function') {
+                    // 加载指令化转译
+                    let interpretations = null;
+                    try {
+                        const interpResp = await fetchJSON('/api/interpretation/latest');
+                        if (interpResp.success) {
+                            interpretations = interpResp.interpretations;
+                        }
+                    } catch (e) {
+                        console.warn('加载指令失败：', e);
+                    }
+                    renderIndicators(result, interpretations);
+                }
+            } catch (err) {
+                console.error('加载分析结果失败：', err);
+            }
+        }
+        
+        // 导出日志
+        async function exportLogs() {
+            try {
+                const resp = await fetch('/api/logs/export', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        include_feedback: true,
+                        include_images: true
+                    })
+                });
+                if (resp.ok) {
+                    const blob = await resp.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `operation_logs_${new Date().toISOString().slice(0,10)}.csv`;
+                    a.click();
+                    alert('日志导出成功');
+                } else {
+                    throw new Error('导出失败');
+                }
+            } catch (err) {
+                alert('导出失败：' + err.message);
+            }
+        }
+        
+        // 切换主题
+        function toggleTheme() {
+            document.body.classList.toggle('dark-theme');
+            localStorage.setItem('theme', document.body.classList.contains('dark-theme') ? 'dark' : 'light');
+        }
+        
+        // 页面加载完成后初始化
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadModules);
+        } else {
+            loadModules();
+        }
+    </script>
+</body>
+</html>
+

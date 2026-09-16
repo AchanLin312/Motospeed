@@ -1,0 +1,320 @@
+<!-- 指令化转译模块 -->
+<section id="instructionsSection" class="instructions-section">
+    <h2>📋 警务决策指令</h2>
+    <div class="instructions-tabs">
+        <button class="inst-tab-btn active" data-tab="summary">指令摘要</button>
+        <button class="inst-tab-btn" data-tab="detailed">详细指令</button>
+        <button class="inst-tab-btn" data-tab="recommendations">策略建议</button>
+    </div>
+    <div class="instructions-content">
+        <div class="inst-tab-panel active" id="summary-panel">
+            <div class="instruction-cards" id="instructionCards">
+                <!-- 指令卡片将通过JavaScript动态生成 -->
+            </div>
+        </div>
+        <div class="inst-tab-panel" id="detailed-panel">
+            <div class="instruction-detail" id="instructionDetail">
+                <!-- 详细指令内容 -->
+            </div>
+        </div>
+        <div class="inst-tab-panel" id="recommendations-panel">
+            <div class="recommendations-list" id="recommendationsList">
+                <!-- 策略建议列表 -->
+            </div>
+        </div>
+    </div>
+    <div id="instructionsStatus" class="status"></div>
+</section>
+
+<style>
+.instructions-section {
+    grid-column: 1 / -1;
+}
+.instructions-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #e2e8ff;
+}
+.inst-tab-btn {
+    padding: 10px 20px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #5b6da7;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+.inst-tab-btn:hover {
+    color: #165DFF;
+    background: rgba(22,93,255,0.05);
+}
+.inst-tab-btn.active {
+    color: #165DFF;
+    border-bottom-color: #165DFF;
+    font-weight: 600;
+}
+.inst-tab-panel {
+    display: none;
+}
+.inst-tab-panel.active {
+    display: block;
+}
+.instruction-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+}
+.instruction-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    border-left: 4px solid;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.3s;
+}
+.instruction-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.instruction-card.red {
+    border-left-color: #d93025;
+    background: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%);
+}
+.instruction-card.yellow {
+    border-left-color: #f9a825;
+    background: linear-gradient(135deg, #fffbf0 0%, #fff8e1 100%);
+}
+.instruction-card.blue {
+    border-left-color: #1976d2;
+    background: linear-gradient(135deg, #f0f7ff 0%, #e3f2fd 100%);
+}
+.instruction-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.instruction-level {
+    font-size: 16px;
+    font-weight: 600;
+    color: #0E1E5B;
+}
+.instruction-title {
+    font-size: 14px;
+    color: #5b6da7;
+}
+.instruction-content {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1f2a44;
+    margin-bottom: 12px;
+}
+.instruction-actions {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.instruction-actions li {
+    padding: 6px 0;
+    padding-left: 20px;
+    position: relative;
+    font-size: 13px;
+    color: #5b6da7;
+}
+.instruction-actions li:before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: #165DFF;
+}
+.instruction-detail {
+    background: #f8faff;
+    border-radius: 8px;
+    padding: 20px;
+    line-height: 1.8;
+    font-size: 14px;
+}
+.instruction-detail h3 {
+    color: #165DFF;
+    margin-top: 0;
+    margin-bottom: 12px;
+}
+.instruction-detail p {
+    margin: 8px 0;
+}
+.recommendations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.recommendation-item {
+    background: #f8faff;
+    border-radius: 8px;
+    padding: 16px;
+    border-left: 3px solid #165DFF;
+}
+.recommendation-type {
+    font-weight: 600;
+    color: #165DFF;
+    margin-bottom: 8px;
+}
+.recommendation-content {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1f2a44;
+    margin-bottom: 8px;
+}
+.recommendation-implementation {
+    font-size: 12px;
+    color: #7a8ba8;
+    font-style: italic;
+}
+</style>
+
+<script>
+// 指令标签切换
+document.querySelectorAll('.inst-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tabName = btn.dataset.tab;
+        document.querySelectorAll('.inst-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.inst-tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(tabName + '-panel').classList.add('active');
+    });
+});
+
+function renderInstructions(interpretations) {
+    if (!interpretations) return;
+    
+    // 渲染指令卡片
+    const cardsEl = document.getElementById('instructionCards');
+    if (cardsEl && interpretations.instructions) {
+        cardsEl.innerHTML = interpretations.instructions.map(inst => `
+            <div class="instruction-card ${inst.level}">
+                <div class="instruction-header">
+                    <span class="instruction-level">${getLevelName(inst.level)}</span>
+                    <span class="instruction-title">${inst.title}</span>
+                </div>
+                <div class="instruction-content">${inst.content}</div>
+                <ul class="instruction-actions">
+                    ${inst.actions.map(action => `<li>${action}</li>`).join('')}
+                </ul>
+            </div>
+        `).join('');
+    }
+    
+    // 渲染详细指令
+    const detailEl = document.getElementById('instructionDetail');
+    if (detailEl && interpretations.indicators) {
+        detailEl.innerHTML = Object.entries(interpretations.indicators).map(([key, info]) => `
+            <h3>${key.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</h3>
+            <p><strong>数值：</strong>${info.value}</p>
+            <p><strong>解释：</strong>${info.explanation}</p>
+            <p><strong>指令：</strong>${info.instruction}</p>
+        `).join('');
+    }
+    
+    // 渲染策略建议
+    const recsEl = document.getElementById('recommendationsList');
+    if (recsEl && interpretations.recommendations) {
+        recsEl.innerHTML = interpretations.recommendations.map(rec => `
+            <div class="recommendation-item">
+                <div class="recommendation-type">${rec.type}</div>
+                <div class="recommendation-content">${rec.content}</div>
+                <div class="recommendation-implementation">实施时间：${rec.implementation}</div>
+            </div>
+        `).join('');
+    }
+}
+
+function getLevelName(level) {
+    const names = {
+        'red': '🔴 紧急',
+        'yellow': '🟡 预警',
+        'blue': '🔵 常态'
+    };
+    return names[level] || level;
+}
+
+async function loadInstructions() {
+    const statusEl = document.getElementById('instructionsStatus');
+    try {
+        setStatus(statusEl, '正在加载指令...', true);
+        
+        // 先检查是否有分析数据
+        const hasData = await checkTrajectoryData();
+        if (!hasData) {
+            const cardsEl = document.getElementById('instructionCards');
+            if (cardsEl) {
+                cardsEl.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #7a8ba8;">
+                        <p style="font-size: 16px; margin-bottom: 12px;">📋 暂无指令数据</p>
+                        <p style="font-size: 14px;">请先上传数据并执行风险分析</p>
+                    </div>
+                `;
+            }
+            setStatus(statusEl, '暂无分析数据', false);
+            return;
+        }
+        
+        const resp = await fetch('/api/interpretation/latest');
+        if (!resp.ok) {
+            // 如果没有指令，尝试生成
+            const generateResp = await fetch('/api/interpretation/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (generateResp.ok) {
+                const genData = await generateResp.json();
+                if (genData.success && genData.interpretations) {
+                    renderInstructions(genData.interpretations);
+                    setStatus(statusEl, '指令生成成功', true);
+                    return;
+                }
+            }
+            throw new Error('无法获取或生成指令');
+        }
+        
+        const data = await resp.json();
+        if (data.success && data.interpretations) {
+            renderInstructions(data.interpretations);
+            setStatus(statusEl, '指令加载成功', true);
+        } else {
+            // 尝试生成指令
+            const generateResp = await fetch('/api/interpretation/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (generateResp.ok) {
+                const genData = await generateResp.json();
+                if (genData.success && genData.interpretations) {
+                    renderInstructions(genData.interpretations);
+                    setStatus(statusEl, '指令生成成功', true);
+                } else {
+                    throw new Error('暂无指令数据');
+                }
+            } else {
+                throw new Error('暂无指令数据');
+            }
+        }
+    } catch (err) {
+        setStatus(statusEl, '加载失败：' + err.message, false);
+        const cardsEl = document.getElementById('instructionCards');
+        if (cardsEl) {
+            cardsEl.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #7a8ba8;">
+                    <p style="font-size: 16px; margin-bottom: 12px;">📋 指令加载失败</p>
+                    <p style="font-size: 14px;">${err.message}</p>
+                </div>
+            `;
+        }
+    }
+}
+
+// 确保函数在全局作用域
+window.loadInstructions = loadInstructions;
+window.renderInstructions = renderInstructions;
+</script>
+

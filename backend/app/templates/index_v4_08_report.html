@@ -1,0 +1,338 @@
+<!-- 结构化报告网页化呈现模块 -->
+<section id="reportSection" class="report-section">
+    <h2>📄 风险分析报告</h2>
+    <div class="report-controls">
+        <button onclick="loadReport()" class="secondary">📖 加载报告</button>
+        <button onclick="generateReport()">🔄 生成新报告</button>
+        <select id="reportFormat" style="width: auto; margin-left: 12px;">
+            <option value="word">Word格式</option>
+            <option value="excel">Excel格式</option>
+        </select>
+    </div>
+    <div class="report-container">
+        <div class="report-sidebar" id="reportSidebar">
+            <h3>报告大纲</h3>
+            <ul class="report-toc" id="reportTOC">
+                <!-- 大纲导航将通过JavaScript动态生成 -->
+            </ul>
+        </div>
+        <div class="report-content" id="reportContent">
+            <div class="report-placeholder">
+                <p>点击"加载报告"按钮查看最新生成的风险分析报告</p>
+                <p style="font-size: 12px; color: #7a8ba8; margin-top: 8px;">
+                    报告包含：执行摘要、空间自相关分析、时空热点分析、趋势分析、应对建议等完整章节
+                </p>
+            </div>
+        </div>
+    </div>
+    <div id="reportStatus" class="status"></div>
+</section>
+
+<style>
+.report-section {
+    grid-column: 1 / -1;
+}
+.report-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+}
+.report-container {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 20px;
+    min-height: 600px;
+    border: 1px solid #e2e8ff;
+    border-radius: 12px;
+    overflow: hidden;
+}
+.report-sidebar {
+    background: #f8faff;
+    padding: 20px;
+    border-right: 1px solid #e2e8ff;
+    overflow-y: auto;
+}
+.report-sidebar h3 {
+    margin: 0 0 16px;
+    font-size: 16px;
+    color: #165DFF;
+}
+.report-toc {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.report-toc li {
+    margin: 8px 0;
+}
+.report-toc a {
+    display: block;
+    padding: 8px 12px;
+    color: #5b6da7;
+    text-decoration: none;
+    border-radius: 6px;
+    transition: all 0.2s;
+    font-size: 13px;
+}
+.report-toc a:hover {
+    background: rgba(22,93,255,0.1);
+    color: #165DFF;
+}
+.report-toc a.active {
+    background: #165DFF;
+    color: white;
+}
+.report-content {
+    padding: 24px;
+    background: white;
+    overflow-y: auto;
+    max-height: 600px;
+}
+.report-placeholder {
+    text-align: center;
+    padding: 60px 20px;
+    color: #7a8ba8;
+}
+.report-content h1 {
+    color: #165DFF;
+    font-size: 24px;
+    margin: 0 0 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #e2e8ff;
+}
+.report-content h2 {
+    color: #0E1E5B;
+    font-size: 20px;
+    margin: 24px 0 16px;
+    padding-left: 12px;
+    border-left: 4px solid #165DFF;
+}
+.report-content h3 {
+    color: #1f2a44;
+    font-size: 16px;
+    margin: 20px 0 12px;
+}
+.report-content p {
+    line-height: 1.8;
+    margin: 12px 0;
+    color: #1f2a44;
+}
+.report-content strong {
+    color: #165DFF;
+    font-weight: 600;
+}
+.report-content em {
+    color: #f57c00;
+    font-style: italic;
+}
+.report-content .highlight {
+    background: #fff3cd;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+.report-content .keyword-high {
+    background: #ffebee;
+    color: #c62828;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+.report-content .keyword-action {
+    background: #e3f2fd;
+    color: #1565c0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+.report-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+}
+.report-content table th,
+.report-content table td {
+    border: 1px solid #e2e8ff;
+    padding: 10px;
+    text-align: left;
+}
+.report-content table th {
+    background: #f8faff;
+    color: #165DFF;
+    font-weight: 600;
+}
+.report-content ul, .report-content ol {
+    margin: 12px 0;
+    padding-left: 24px;
+}
+.report-content li {
+    margin: 6px 0;
+    line-height: 1.6;
+}
+@media (max-width: 1200px) {
+    .report-container {
+        grid-template-columns: 1fr;
+    }
+    .report-sidebar {
+        border-right: none;
+        border-bottom: 1px solid #e2e8ff;
+    }
+}
+</style>
+
+<script>
+async function loadReport() {
+    const statusEl = document.getElementById('reportStatus');
+    const contentEl = document.getElementById('reportContent');
+    
+    try {
+        // 先检查是否有数据
+        const hasData = await checkTrajectoryData();
+        if (!hasData) {
+            contentEl.innerHTML = '<div class="report-placeholder"><p>请先上传数据并执行分析</p></div>';
+            setStatus(statusEl, '暂无分析数据', false);
+            return;
+        }
+        
+        setStatus(statusEl, '正在加载报告...', true);
+        
+        // 获取报告文本内容（从指令化报告或Word报告解析）
+        const resp = await fetch('/api/interpretation/report');
+        const data = await resp.json();
+        
+        if (data.success && data.report) {
+            // 解析报告文本并高亮关键词
+            const reportHtml = parseReportText(data.report);
+            contentEl.innerHTML = reportHtml;
+            
+            // 生成大纲导航
+            generateTOC(contentEl);
+            
+            setStatus(statusEl, '报告加载成功', true);
+        } else {
+            // 尝试从文件系统加载最新报告
+            const reportResp = await fetch('/api/reports/risk-analysis/download');
+            if (reportResp.ok) {
+                // 如果是Word文件，提示用户下载
+                setStatus(statusEl, '报告已生成，请下载查看', true);
+                alert('报告已生成，请下载Word/Excel文件查看完整内容');
+            } else {
+                throw new Error('暂无报告数据');
+            }
+        }
+    } catch (err) {
+        setStatus(statusEl, '加载失败：' + err.message, false);
+        contentEl.innerHTML = '<div class="report-placeholder"><p>加载失败：' + err.message + '</p></div>';
+    }
+}
+
+function parseReportText(text) {
+    // 解析报告文本，添加格式化和高亮
+    let html = text;
+    
+    // 识别标题
+    html = html.replace(/^=+\s*$/gm, ''); // 移除分隔线
+    html = html.replace(/^【([^】]+)】/gm, '<h2>$1</h2>');
+    html = html.replace(/^•\s*([^：:]+)[：:]/gm, '<h3>$1</h3>');
+    
+    // 高亮关键词
+    const keywords = {
+        '高风险': 'keyword-high',
+        '立即处置': 'keyword-action',
+        '重点监控': 'keyword-action',
+        '紧急': 'keyword-high',
+        '预警': 'keyword-action',
+        '建议': 'highlight'
+    };
+    
+    for (const [keyword, className] of Object.entries(keywords)) {
+        const regex = new RegExp(keyword, 'g');
+        html = html.replace(regex, `<span class="${className}">${keyword}</span>`);
+    }
+    
+    // 格式化段落
+    html = html.split('\n').map(line => {
+        line = line.trim();
+        if (!line) return '';
+        if (line.startsWith('<h')) return line;
+        if (line.startsWith('  -') || line.startsWith('    -')) {
+            return '<li>' + line.replace(/^[\s-]+/, '') + '</li>';
+        }
+        return '<p>' + line + '</p>';
+    }).join('\n');
+    
+    // 包装列表
+    html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+    
+    return '<div class="report-body">' + html + '</div>';
+}
+
+function generateTOC(contentEl) {
+    const tocEl = document.getElementById('reportTOC');
+    const headings = contentEl.querySelectorAll('h2, h3');
+    
+    if (headings.length === 0) {
+        tocEl.innerHTML = '<li><a href="#">暂无大纲</a></li>';
+        return;
+    }
+    
+    tocEl.innerHTML = Array.from(headings).map((heading, idx) => {
+        const id = `section-${idx}`;
+        heading.id = id;
+        return `<li><a href="#${id}" onclick="scrollToSection('${id}'); return false;">${heading.textContent}</a></li>`;
+    }).join('');
+}
+
+function scrollToSection(id) {
+    const section = document.getElementById(id);
+    if (section) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // 更新活动状态
+        document.querySelectorAll('.report-toc a').forEach(a => a.classList.remove('active'));
+        document.querySelector(`.report-toc a[href="#${id}"]`)?.classList.add('active');
+    }
+}
+
+async function generateReport() {
+    const statusEl = document.getElementById('reportStatus');
+    const format = document.getElementById('reportFormat').value;
+    
+    try {
+        // 先检查是否有数据
+        const hasData = await checkTrajectoryData();
+        if (!hasData) {
+            setStatus(statusEl, '请先上传数据并执行分析', false);
+            return;
+        }
+        
+        setStatus(statusEl, '正在生成报告...', true);
+        const resp = await fetch('/api/reports/risk-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format: format, include_charts: true })
+        });
+        const data = await resp.json();
+        
+        if (resp.ok && data.filepath) {
+            setStatus(statusEl, '报告生成成功', true);
+            // 提供下载链接
+            const downloadUrl = `/api/reports/risk-analysis/download?filepath=${encodeURIComponent(data.filepath)}`;
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = data.filepath.split('/').pop() || 'report';
+            a.click();
+            // 自动加载报告内容（如果是Word格式）
+            if (format === 'word') {
+                await loadReport();
+            }
+        } else {
+            throw new Error(data.error || '生成失败');
+        }
+    } catch (err) {
+        setStatus(statusEl, '生成失败：' + err.message, false);
+    }
+}
+</script>
+

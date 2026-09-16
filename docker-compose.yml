@@ -1,0 +1,25 @@
+# 数治骑迹平台 Docker Compose 配置
+# 一键启动完整服务
+
+version: '3.8'
+
+services:
+  motospeed:
+    build: .
+    container_name: 数治骑迹平台
+    ports:
+      - "5000:5000"
+    volumes:
+      # 数据持久化：将数据目录挂载到宿主机
+      - ./outputs:/app/outputs
+      - ./uploads:/app/uploads
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+

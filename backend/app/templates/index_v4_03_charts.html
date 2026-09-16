@@ -1,0 +1,246 @@
+<!-- 图表集成模块 -->
+<section id="chartsSection" class="charts-section">
+    <h2>📈 可视化分析</h2>
+    <div class="chart-tabs">
+        <button class="tab-btn active" data-tab="dashboard">综合仪表盘</button>
+        <button class="tab-btn" data-tab="trend">趋势分析</button>
+        <button class="tab-btn" data-tab="time-dist">时段分布</button>
+    </div>
+    <div class="chart-content">
+        <div class="tab-panel active" id="dashboard-panel">
+            <div class="chart-container">
+                <img id="dashboardChart" src="" alt="综合仪表盘" style="max-width: 100%; display: none;" />
+                <div class="chart-placeholder">点击"生成图表"按钮加载综合仪表盘</div>
+            </div>
+            <div class="chart-actions">
+                <button onclick="generateChart('dashboard')">生成图表</button>
+                <button onclick="downloadChart('dashboard')" class="secondary">下载PNG</button>
+            </div>
+        </div>
+        <div class="tab-panel" id="trend-panel">
+            <div class="chart-container">
+                <img id="trendChart" src="" alt="趋势折线图" style="max-width: 100%; display: none;" />
+                <div class="chart-placeholder">点击"生成图表"按钮加载趋势分析</div>
+            </div>
+            <div class="chart-actions">
+                <label>时间范围：
+                    <select id="trendTimeMode" onchange="toggleTrendTimeMode()">
+                        <option value="days">按天数</option>
+                        <option value="custom">自定义日期</option>
+                    </select>
+                </label>
+                <div id="trendDaysContainer" style="display: inline-block;">
+                    <select id="trendDays">
+                        <option value="7">近7天</option>
+                        <option value="15">近15天</option>
+                        <option value="30" selected>近30天</option>
+                        <option value="60">近60天</option>
+                        <option value="all">全量数据</option>
+                    </select>
+                </div>
+                <div id="trendCustomDateContainer" style="display: none; gap: 8px; align-items: center;">
+                    <label style="font-size: 12px;">起始日期：</label>
+                    <input type="date" id="trendStartDate" style="padding: 4px 8px; border: 1px solid #e2e8ff; border-radius: 4px;" />
+                    <label style="font-size: 12px;">结束日期：</label>
+                    <input type="date" id="trendEndDate" style="padding: 4px 8px; border: 1px solid #e2e8ff; border-radius: 4px;" />
+                </div>
+                <button onclick="generateChart('trend')">生成图表</button>
+                <button onclick="downloadChart('trend')" class="secondary">下载PNG</button>
+            </div>
+        </div>
+        <div class="tab-panel" id="time-dist-panel">
+            <div class="chart-container">
+                <img id="timeDistChart" src="" alt="时段分布图" style="max-width: 100%; display: none;" />
+                <div class="chart-placeholder">点击"生成图表"按钮加载时段分布</div>
+            </div>
+            <div class="chart-actions">
+                <button onclick="generateChart('time-distribution')">生成图表</button>
+                <button onclick="downloadChart('time-distribution')" class="secondary">下载PNG</button>
+            </div>
+        </div>
+    </div>
+    <div id="chartsStatus" class="status"></div>
+</section>
+
+<style>
+.charts-section {
+    grid-column: 1 / -1;
+}
+.chart-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #e2e8ff;
+}
+.tab-btn {
+    padding: 10px 20px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #5b6da7;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+.tab-btn:hover {
+    color: #165DFF;
+    background: rgba(22,93,255,0.05);
+}
+.tab-btn.active {
+    color: #165DFF;
+    border-bottom-color: #165DFF;
+    font-weight: 600;
+}
+.tab-panel {
+    display: none;
+}
+.tab-panel.active {
+    display: block;
+}
+.chart-container {
+    min-height: 400px;
+    background: #f8faff;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    margin-bottom: 16px;
+}
+.chart-placeholder {
+    color: #7a8ba8;
+    font-size: 14px;
+    text-align: center;
+}
+.chart-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.chart-actions label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #5b6da7;
+}
+.chart-actions select {
+    width: auto;
+    min-width: 120px;
+}
+.chart-actions input[type="date"] {
+    padding: 4px 8px;
+    border: 1px solid #e2e8ff;
+    border-radius: 4px;
+    font-size: 13px;
+}
+</style>
+
+<script>
+// 图表标签切换
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tabName = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(tabName + '-panel').classList.add('active');
+    });
+});
+
+async function generateChart(chartType) {
+    const statusEl = document.getElementById('chartsStatus');
+    try {
+        setStatus(statusEl, '正在生成图表...', true);
+        
+        // 检查是否有数据
+        const hasData = await checkTrajectoryData();
+        if (!hasData) {
+            throw new Error('请先上传数据并执行分析');
+        }
+        
+        // 处理趋势图的时间范围参数
+        let params = {};
+        if (chartType === 'trend') {
+            const timeMode = document.getElementById('trendTimeMode').value;
+            if (timeMode === 'custom') {
+                // 自定义日期范围
+                const startDate = document.getElementById('trendStartDate').value;
+                const endDate = document.getElementById('trendEndDate').value;
+                if (!startDate || !endDate) {
+                    throw new Error('请选择起始日期和结束日期');
+                }
+                if (new Date(startDate) > new Date(endDate)) {
+                    throw new Error('起始日期不能晚于结束日期');
+                }
+                params = { 
+                    start_date: startDate,
+                    end_date: endDate
+                };
+            } else {
+                // 按天数
+                const daysValue = document.getElementById('trendDays').value;
+                // 如果选择"全量数据"，传递0或"all"
+                params = { days: daysValue === 'all' ? 0 : parseInt(daysValue) };
+            }
+        }
+        const apiPath = chartType === 'time-distribution' ? 'time-distribution' : chartType;
+        const resp = await fetch(`/api/charts/${apiPath}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params)
+        });
+        const data = await resp.json();
+        if (data.success && data.chart_path) {
+            const imgId = chartType === 'dashboard' ? 'dashboardChart' : 
+                         chartType === 'trend' ? 'trendChart' : 'timeDistChart';
+            const img = document.getElementById(imgId);
+            const downloadPath = chartType === 'time-distribution' ? 'time-distribution' : chartType;
+            img.src = `/api/charts/${downloadPath}/download?filepath=${encodeURIComponent(data.chart_path)}`;
+            img.style.display = 'block';
+            const placeholder = img.parentElement.querySelector('.chart-placeholder');
+            if (placeholder) placeholder.style.display = 'none';
+            setStatus(statusEl, '图表生成成功', true);
+        } else {
+            throw new Error(data.error || '生成失败');
+        }
+    } catch (err) {
+        setStatus(statusEl, '生成失败：' + err.message, false);
+    }
+}
+
+async function downloadChart(chartType) {
+    const img = document.getElementById(
+        chartType === 'dashboard' ? 'dashboardChart' : 
+        chartType === 'trend' ? 'trendChart' : 'timeDistChart'
+    );
+    if (!img.src) {
+        alert('请先生成图表');
+        return;
+    }
+    window.open(img.src, '_blank');
+}
+
+// 切换趋势图时间选择模式
+function toggleTrendTimeMode() {
+    const mode = document.getElementById('trendTimeMode').value;
+    const daysContainer = document.getElementById('trendDaysContainer');
+    const customContainer = document.getElementById('trendCustomDateContainer');
+    
+    if (mode === 'custom') {
+        daysContainer.style.display = 'none';
+        customContainer.style.display = 'flex';
+        // 设置默认日期（今天和30天前）
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+        document.getElementById('trendStartDate').value = thirtyDaysAgo.toISOString().split('T')[0];
+        document.getElementById('trendEndDate').value = today.toISOString().split('T')[0];
+    } else {
+        daysContainer.style.display = 'inline-block';
+        customContainer.style.display = 'none';
+    }
+}
+</script>
+
