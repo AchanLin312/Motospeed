@@ -1,25 +1,20 @@
-# 数治骑迹平台 Docker Compose 配置
-# 一键启动完整服务
-
-version: '3.8'
-
+# 数治骑迹 V2 一键部署
+# 用法：docker compose up -d
+# 说明：
+#   - LLM_API_KEY 通过宿主环境变量或同目录 .env 文件注入（勿写死进镜像）
+#   - V2_ADMIN_TOKEN 未设置时管理模式接口处于开发放行状态，生产环境务必设置
+#   - 若宿主 5000 端口被本地后端占用，改左侧端口如 "15000:5000"
 services:
-  motospeed:
+  web:
     build: .
-    container_name: 数治骑迹平台
+    container_name: motospeed-v2
     ports:
       - "5000:5000"
     volumes:
-      # 数据持久化：将数据目录挂载到宿主机
-      - ./outputs:/app/outputs
-      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs          # 分析产物持久化（批次/路网/分析版本）
     environment:
-      - FLASK_ENV=production
-      - PYTHONUNBUFFERED=1
+      TZ: Asia/Shanghai
+      LLM_API_BASE: ${LLM_API_BASE:-https://api.deepseek.com/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      V2_ADMIN_TOKEN: ${V2_ADMIN_TOKEN:-}
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-

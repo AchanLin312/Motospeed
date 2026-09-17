@@ -21,11 +21,12 @@ except Exception:  # pragma: no cover
 
 
 def _classify_risk(z_score: float) -> str:
+    # 分级口径：99% / 95% / 80% 置信度（单侧 α=0.005/0.025/0.10）
     if z_score >= 2.58:
         return "high"
     if z_score >= 1.96:
         return "medium"
-    if z_score >= 1.65:
+    if z_score >= 1.28:
         return "low"
     return "insignificant"
 
@@ -42,7 +43,7 @@ def getis_ord_indicator(gdf: gpd.GeoDataFrame, column: str) -> gpd.GeoDataFrame:
     if HAS_PYSAL and len(gdf) >= 5:
         w = KNN.from_dataframe(gdf, k=min(5, len(gdf) - 1))
         w.transform = "R"
-        gi = G_Local(values, w)
+        gi = G_Local(values, w, star=True)  # Gi*：纳入自身值（docx 口径）
         gdf["gi_z"] = gi.Zs
     else:
         gdf["gi_z"] = _fallback_gi_scores(values)

@@ -48,6 +48,7 @@ logs/
 *.key
 # 含真实 LLM 密钥的本地启动脚本，禁止提交
 start_v2.bat
+start_desktop.bat
 # 本机走局域网代理的开关文件（每台机器自己决定）
 use_proxy.flag
 

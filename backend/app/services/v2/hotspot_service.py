@@ -5,7 +5,7 @@
 - 质量门控：仅 quality_flag=valid 网格参与 Gi*（既不产出热点多边形，
   也不作为 KNN 邻居抬升他格邻域总和），低暴露统计噪声不再制造幽灵热点
 - AC19 无显著热点时兜底 top8，selection_type=top_risk_fallback
-- Z 分级阈值 2.58 / 1.96 / 1.65（α=0.01 / 0.05 / 0.10）
+- Z 分级阈值 2.58 / 1.96 / 1.28（置信度 99% / 95% / 80%）
 - AC25 Moran / LISA 保留（作用于综合 CRI）
 - AC28 趋势分析：单日数据不足，明确返回"数据不足"
 
@@ -123,7 +123,7 @@ def _run_layer(gdf_all: gpd.GeoDataFrame, layer: str, column: str,
         "layer": layer,
         "column": column,
         "n_valid": int(len(valid)),
-        "z_thresholds": [2.58, 1.96, 1.65],
+        "z_thresholds": [2.58, 1.96, 1.28],
     }
     if len(valid) < 5:
         return ({"type": "FeatureCollection", "features": []},

@@ -1,0 +1,30 @@
+# V2 后端 Docker 镜像依赖清单。
+# 注意：项目根 requirements.txt 是 V1 时代清单（含 PyQt6 桌面依赖、缺 V2 空间分析依赖），
+# Docker 构建使用本文件；两份清单后续可合并整理。
+
+# Web 框架
+flask>=3.0
+sqlalchemy>=2.0
+
+# 数据处理与空间分析（V2 七阶段流水线）
+pandas>=2.0
+numpy>=1.24
+scipy>=1.11
+shapely>=2.0
+pyproj>=3.6
+geopandas>=0.14
+esda>=2.12          # Getis-Ord Gi*
+libpysal>=4.9       # 空间权重（KNN）
+
+# HTTP / LLM 调用
+requests>=2.31
+
+# 导入导出
+openpyxl>=3.1
+python-docx>=0.8.11
+
+# 可视化与 V1 兼容层（backend 内仍有 import，不可省）
+matplotlib>=3.7
+pillow>=10.0
+networkx>=3.0
+folium>=0.16

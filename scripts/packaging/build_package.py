@@ -144,14 +144,6 @@ def create_ui_spec():
     else:
         print(f"  ⚠ 警告: 算法目录不存在: {spatial_dir}")
     
-    # 检查map_template.html是否存在
-    map_template = PROJECT_ROOT / "ui" / "map_template.html"
-    if map_template.exists() and map_template.is_file():
-        datas.append(('ui/map_template.html', 'ui'))
-        print(f"  ✓ 添加地图模板: {map_template}")
-    else:
-        print(f"  ⚠ 警告: 地图模板不存在: {map_template}")
-    
     # 检查templates目录是否存在
     templates_dir = PROJECT_ROOT / "backend" / "app" / "templates"
     if templates_dir.exists() and templates_dir.is_dir():
@@ -201,10 +193,8 @@ a = Analysis(
         'PyQt6.QtWidgets',
         'PyQt6.QtWebEngineWidgets',
         'PyQt6.QtWebEngineCore',
-        'PyQt6.QtWebChannel',
         'PyQt6.QtNetwork',
         'PyQt6.QtWebEngine',
-        'ui.services',
         'backend.app',
         'spatial_analysis',
     ],

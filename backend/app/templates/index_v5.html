@@ -761,6 +761,8 @@
             const w = (s.scoring && s.scoring.weights) || {};
             const mo = (s.moran && s.moran.global_moran) || {};
             const hs = s.hotspots || {};
+            const hsLabel = (m) => !m ? '-' :
+                (m.selection_type === 'top_risk_fallback' ? `兜底${fmt(m.n_significant, 0)}` : `${fmt(m.n_significant, 0)}`);
             const cards = [
                 ['匹配率', fmt(s.match && s.match.match_rate * 100, 1) + '%',
                     `${fmt(s.match && s.match.points_total, 0)} 点 → ${s.match ? s.match.net_id : '-'}`],
@@ -774,8 +776,8 @@
                 ['熵权 W₁/W₂/W₃', `${fmt(w.overspeed_rate * 100, 1)}/${fmt(w.reverse_rate * 100, 1)}/${fmt(w.rapid_rate * 100, 1)}%`,
                     '熵权法按本批数据的网格间差异自动定权（W₁超速率/W₂逆行率/W₃急变速率），随批次变化，非人工设定'],
                 ["Moran's I", fmt(mo.moran_i, 3), `z=${fmt(mo.z_score, 2)}, p=${fmt(mo.p_value, 3)}；全局空间自相关检验：I 越接近 +1 风险网格越成片聚集，接近 0 或 p>0.05 表示整体接近随机分布（此时 LISA/热点图上的零星格子需谨慎解读）`],
-                ['显著热点', `${fmt(hs.comprehensive && hs.comprehensive.n_significant, 0)} 格`,
-                    `超速 ${fmt(hs.overspeed && hs.overspeed.n_significant, 0)} · 逆行 ${fmt(hs.reverse && hs.reverse.n_significant, 0)} · 急变速 ${fmt(hs.rapid && hs.rapid.n_significant, 0)}`],
+                ['显著热点', `${hsLabel(hs.comprehensive)} 格`,
+                    `超速 ${hsLabel(hs.overspeed)} · 逆行 ${hsLabel(hs.reverse)} · 急变速 ${hsLabel(hs.rapid)}`],
             ];
             g.innerHTML = cards.map(([label, val, tip], i) => `
         <div class="kpi"><span>${esc(label)}</span><strong${String(val).length > 9 ? ' class="long"' : ''}>${esc(val)}</strong>
@@ -800,7 +802,7 @@
                 div.innerHTML = '<b>风险等级（Gi* Z 分级）</b><br>'
                     + '<span class="sw" style="background:#d93025"></span>高（Z≥2.58）<br>'
                     + '<span class="sw" style="background:#f59e0b"></span>中（Z≥1.96）<br>'
-                    + '<span class="sw" style="background:#fbbf24"></span>一般显著（Z≥1.65）<br>'
+                    + '<span class="sw" style="background:#fbbf24"></span>一般显著（Z≥1.28）<br>'
                     + '<span class="sw" style="background:#93c5fd"></span>Top8 兜底关注';
                 return div;
             };

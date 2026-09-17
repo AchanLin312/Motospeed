@@ -1,45 +1,32 @@
-# 数治骑迹平台 Docker 镜像
-# 支持跨平台部署，无需在目标机器上安装Python环境
+# 数治骑迹 V2 后端镜像（Flask + 空间分析流水线）
+# 构建：docker build -t motospeed-v2 .
+# 运行：docker compose up -d   （浏览器访问 http://localhost:5000）
+FROM python:3.11-slim
 
-FROM python:3.10-slim
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    TZ=Asia/Shanghai
 
-# 设置工作目录
-WORKDIR /app
-
-# 安装系统依赖（geopandas等需要）
-RUN apt-get update && apt-get install -y \
-    gdal-bin \
-    libgdal-dev \
-    libproj-dev \
-    libgeos-dev \
-    libspatialindex-dev \
+# 时区（容器默认 UTC，分析时间戳统一为北京时间）
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tzdata \
+    && ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && rm -rf /var/lib/apt/lists/*
 
-# 设置环境变量
-ENV PYTHONUNBUFFERED=1
-ENV GDAL_DATA=/usr/share/gdal
+WORKDIR /app
 
-# 复制依赖文件
-COPY requirements.txt backend/requirements.txt ./
+COPY requirements-docker.txt .
+RUN pip install --no-cache-dir -r requirements-docker.txt \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-# 安装Python依赖
-RUN pip install --no-cache-dir -r backend/requirements.txt && \
-    pip install --no-cache-dir gunicorn  # 生产环境WSGI服务器
+# 仅复制运行所需代码；数据与文档经 Volume 挂载 / 交付包提供
+COPY backend ./backend
+COPY spatial_analysis ./spatial_analysis
 
-# 复制项目文件
-COPY . .
-
-# 创建必要的目录
-RUN mkdir -p outputs/runtime outputs/logs outputs/reports outputs/charts \
-    outputs/visualizations outputs/snapshots uploads/images uploads/feedback
-
-# 暴露端口
+WORKDIR /app/backend
 EXPOSE 5000
 
-# 启动命令（两种方式可选）
-# 方式1：直接运行（开发模式）
-CMD ["python", "backend/run.py"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=4)" || exit 1
 
-# 方式2：使用Gunicorn（生产模式，取消注释使用）
-# CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "backend.wsgi:app"]
-
+CMD ["python", "run.py"]

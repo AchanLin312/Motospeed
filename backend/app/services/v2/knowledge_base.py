@@ -33,7 +33,7 @@ from . import V2_DIR
 KB_DIR = V2_DIR / "knowledge_base"          # 运行时知识库版本目录
 KB_DATA_DIR = Path(__file__).parent / "kb_data"   # 初始资产（随代码交付）
 
-GI_SIGNIFICANT_Z = 1.65     # α=0.10 显著（与热点图层 Z 分级一致）
+GI_SIGNIFICANT_Z = 1.28     # 80% 置信度显著（与热点图层 Z 分级一致）
 DOMINANT_RATIO = 1.5        # A01/A02 "明显多于" 判定比例
 
 
