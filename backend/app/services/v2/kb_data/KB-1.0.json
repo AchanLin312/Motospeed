@@ -1,0 +1,228 @@
+{
+  "version": "KB-1.0",
+  "description": "初始治理知识库（需求手册 13.1/13.2，甲方提供内容，乙方负责导入）",
+  "rules": [
+    {
+      "rule_id": "KB-G01",
+      "title": "综合高风险",
+      "applicable_behavior": "综合",
+      "risk_condition": "综合指数高且Gi*显著",
+      "action_text": "早高峰安排针对性现场观察，记录主要风险行为、流向和冲突位置；检查风险是否由单一行为或多行为共同驱动。",
+      "basis_id": "BASIS-BJ22",
+      "caution": "不得只凭平台结果直接认定违法",
+      "priority": 1,
+      "enabled": true
+    },
+    {
+      "rule_id": "KB-G02",
+      "title": "混合风险",
+      "applicable_behavior": "综合",
+      "risk_condition": "三类中至少两类指数较高",
+      "action_text": "采用组合治理：现场秩序维护、道路环境排查、外卖平台安全提醒同步开展，并分别记录处置效果。",
+      "basis_id": "BASIS-BJ40",
+      "caution": "避免只治理超速而忽略逆行或剧烈操作",
+      "priority": 2,
+      "enabled": true
+    },
+    {
+      "rule_id": "KB-S01",
+      "title": "超速主导",
+      "applicable_behavior": "超速",
+      "risk_condition": "超速指数为三类最高",
+      "action_text": "在早高峰高发网格开展速度观察和守法提示；核查限速标志、视距和通行空间；向相关配送企业反馈高发时段和区域。",
+      "basis_id": "BASIS-NPC58",
+      "caution": "论文20 km/h为研究判定阈值，不等同于所有场景的处罚阈值",
+      "priority": 3,
+      "enabled": true
+    },
+    {
+      "rule_id": "KB-S02",
+      "title": "持续超速",
+      "applicable_behavior": "超速",
+      "risk_condition": "事件持续时间或超阈幅度较高",
+      "action_text": "重点观察长距离持续快速骑行，采用现场提示、宣传和平台企业提醒；必要时核查车辆是否存在违法改装线索。",
+      "basis_id": "BASIS-BJ26",
+      "caution": "车辆改装需要现场检查，轨迹不能直接证明",
+      "priority": 4,
+      "enabled": true
+    },
+    {
+      "rule_id": "KB-R01",
+      "title": "单向路疑似逆行",
+      "applicable_behavior": "疑似逆行",
+      "risk_condition": "单向路疑似逆行占比较高",
+      "action_text": "核查单向标志、入口提示和绕行距离；在逆行进入点安排早高峰观察和劝导；向导航或配送平台反馈正确通行方向。",
+      "basis_id": "BASIS-BJ22",
+      "caution": "必须现场核实道路方向和匹配正确性",
+      "priority": 5,
+      "enabled": true
+    },
+    {
+      "rule_id": "KB-R02",
+      "title": "双向路疑似逆行",
+      "applicable_behavior": "疑似逆行",
+      "risk_condition": "双向路疑似逆行占比较高",
+      "action_text": "核查非机动车通行空间、中央隔离、过街设施和出入口组织，观察是否存在绕行需求或道路障碍。",
+      "basis_id": "BASIS-NPC57",
+      "caution": "双向路基于几何侧向判定，只能作为疑似结果",
+      "priority": 6,
+      "enabled": true
+    },
+    {
+      "rule_id": "KB-A01",
+      "title": "急加速主导",
+      "applicable_behavior": "急变速",
+      "risk_condition": "急加速事件明显多于急减速",
+      "action_text": "观察交叉口起步后、出入口合流和通行空间突变位置；检查是否存在抢行、频繁变道或配送时限压力。",
+      "basis_id": "BASIS-BJ22",
+      "caution": "本项目排除了急启动，仍需防止GPS误差",
+      "priority": 7,
+      "enabled": true
+    },
+    {
+      "rule_id": "KB-A02",
+      "title": "急减速主导",
+      "applicable_behavior": "急变速",
+      "risk_condition": "急减速事件明显多于急加速",
+      "action_text": "排查视距遮挡、占道、路面障碍、交叉冲突和标志标线问题；在事件集中位置进行现场视频观察。",
+      "basis_id": "BASIS-BJ22",
+      "caution": "急减速是风险替代指标，不一定属于违法",
+      "priority": 8,
+      "enabled": true
+    },
+    {
+      "rule_id": "KB-A03",
+      "title": "急变速混合",
+      "applicable_behavior": "急变速",
+      "risk_condition": "急加速和急减速均高",
+      "action_text": "检查交通流干扰、交叉口组织、道路宽度变化和机动车非机动车冲突；结合现场观察判断治理对象。",
+      "basis_id": "BASIS-BJ25",
+      "caution": "不要从单日数据推断长期成因",
+      "priority": 9,
+      "enabled": true
+    },
+    {
+      "rule_id": "KB-E01",
+      "title": "外卖平台协同",
+      "applicable_behavior": "综合",
+      "risk_condition": "外卖风险集中且重复出现",
+      "action_text": "向相关企业反馈网格、时段和行为构成，建议优化配送时间和路线规则，开展定向安全培训与提醒。",
+      "basis_id": "BASIS-BJ41",
+      "caution": "不得外发车辆和个人原始标识",
+      "priority": 10,
+      "enabled": true
+    },
+    {
+      "rule_id": "KB-E02",
+      "title": "教育培训",
+      "applicable_behavior": "综合",
+      "risk_condition": "任一风险达到高等级",
+      "action_text": "围绕该网格主导风险制作简短提示，在骑手集中点和企业培训中使用；培训内容应包含速度、行驶方向和安全操作。",
+      "basis_id": "BASIS-SAMR2021",
+      "caution": "宣传内容应与识别到的行为匹配",
+      "priority": 11,
+      "enabled": true
+    },
+    {
+      "rule_id": "KB-D01",
+      "title": "低暴露量",
+      "applicable_behavior": "综合",
+      "risk_condition": "有效里程或轨迹数不足",
+      "action_text": "优先补充数据或现场观察，不将该网格列为确定性治理重点。",
+      "basis_id": "BASIS-METHOD",
+      "caution": "不得用极少样本形成高风险结论",
+      "priority": 12,
+      "enabled": true
+    },
+    {
+      "rule_id": "KB-D02",
+      "title": "非显著兜底网格",
+      "applicable_behavior": "综合",
+      "risk_condition": "selection_type为top_risk_fallback",
+      "action_text": "作为比赛展示和关注线索，可安排轻量核查；报告中注明未达到Gi*显著性标准。",
+      "basis_id": "BASIS-METHOD",
+      "caution": "不得称为统计显著热点",
+      "priority": 13,
+      "enabled": true
+    },
+    {
+      "rule_id": "KB-Q01",
+      "title": "数据质量不足",
+      "applicable_behavior": "急变速",
+      "risk_condition": "急变速可判定比例低",
+      "action_text": "提示管理者补充更高频轨迹，不对不可判定区间进行插值；治理建议降低确定性。",
+      "basis_id": "BASIS-PATENT",
+      "caution": "采样间隔超过6秒不适用于急变速识别",
+      "priority": 14,
+      "enabled": true
+    },
+    {
+      "rule_id": "KB-F01",
+      "title": "效果复核",
+      "applicable_behavior": "综合",
+      "risk_condition": "已形成治理建议",
+      "action_text": "保存本次热点、指标和建议，后续取得可比数据后按相同网格和参数复算，比较事件率变化。",
+      "basis_id": "BASIS-METHOD",
+      "caution": "当前单日数据不能独立证明治理效果",
+      "priority": 15,
+      "enabled": true
+    }
+  ],
+  "basis": {
+    "BASIS-NPC57": {
+      "name": "中华人民共和国道路交通安全法第五十七条",
+      "content": "非机动车应在非机动车道内行驶；没有非机动车道时靠车行道右侧行驶",
+      "source": "https://www.npc.gov.cn/WZWSREL3pncmR3L25wYy94aW53ZW4vMjAxMS0wNC8yMy9jb250ZW50XzE2NTM1NzAuaHRt"
+    },
+    "BASIS-NPC58": {
+      "name": "中华人民共和国道路交通安全法第五十八条",
+      "content": "电动自行车在非机动车道内行驶时最高时速不得超过15 km/h",
+      "source": "https://www.npc.gov.cn/WZWSREL3pncmR3L25wYy94aW53ZW4vMjAxMS0wNC8yMy9jb250ZW50XzE2NTM1NzAuaHRt"
+    },
+    "BASIS-BJ22": {
+      "name": "北京市非机动车管理条例第二十二条",
+      "content": "速度、分道、不得逆行、信号、顺直行驶和不得突然猛拐等通行要求",
+      "source": "https://www.beijing.gov.cn/zhengce/dfxfg/202512/t20251203_4318959.html"
+    },
+    "BASIS-BJ25": {
+      "name": "北京市非机动车管理条例第二十五条",
+      "content": "公安交管部门可以根据道路和交通流量采取疏导、限制或禁止通行等措施",
+      "source": "https://www.beijing.gov.cn/zhengce/dfxfg/202512/t20251203_4318959.html"
+    },
+    "BASIS-BJ26": {
+      "name": "北京市非机动车管理条例第二十六条",
+      "content": "禁止拆改限速装置及影响通行安全的违法改装",
+      "source": "https://www.beijing.gov.cn/zhengce/dfxfg/202512/t20251203_4318959.html"
+    },
+    "BASIS-BJ40": {
+      "name": "北京市非机动车管理条例第四十条",
+      "content": "行业主管部门指导经营者优化算法规则、开展安全教育并会同有关部门检查",
+      "source": "https://www.beijing.gov.cn/zhengce/dfxfg/202512/t20251203_4318959.html"
+    },
+    "BASIS-BJ41": {
+      "name": "北京市非机动车管理条例第四十一条",
+      "content": "外卖等经营者建立安全制度、培训考核、数据协助和平台算法安全责任",
+      "source": "https://www.beijing.gov.cn/zhengce/dfxfg/202512/t20251203_4318959.html"
+    },
+    "BASIS-SAMR2021": {
+      "name": "关于落实网络餐饮平台责任切实维护外卖送餐员权益的指导意见",
+      "content": "加强交通安全教育培训，引导外卖送餐员遵守交通法规",
+      "source": "https://www.samr.gov.cn/xw/zj/art/2023/art_69d5fb62f07d4e888c2aec96b54652e8.html"
+    },
+    "BASIS-GB17761": {
+      "name": "GB 17761-2024 电动自行车安全技术规范",
+      "content": "现行产品安全技术标准；不得替代本项目行为识别算法",
+      "source": "https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=32E5D633E04B67FB241D100CA2A4A41D"
+    },
+    "BASIS-PATENT": {
+      "name": "CN119723879A急变速行为识别专利",
+      "content": "分位数阈值、ST-DBSCAN状态识别和6秒采样间隔有效性",
+      "source": "甲方提供的急加速急减速判定.pdf"
+    },
+    "BASIS-METHOD": {
+      "name": "本项目方法规则",
+      "content": "暴露量控制、Gi*显著性和单日数据限制",
+      "source": "本需求手册"
+    }
+  }
+}

@@ -33,6 +33,9 @@ DATA_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR = PROJECT_ROOT / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
+# V2 平台 API 基址（桌面端内嵌 Web 工作台 + 预留客户端调用）
+V2_API_BASE = "http://127.0.0.1:5000/api/v2"
+
 
 @dataclass
 class DataBatch:

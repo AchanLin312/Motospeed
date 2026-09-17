@@ -3,6 +3,8 @@ import os
 import sys
 from pathlib import Path
 
+import requests
+
 from PyQt6.QtCore import Qt, pyqtSignal, QObject, pyqtSlot, QUrl
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
@@ -55,7 +57,7 @@ class MainWindow(QMainWindow):
         self._init_style()
         self._init_layout()
         self._init_map_views()
-        self._update_status("请选择功能开始操作")
+        self.switch_function("V2 平台")
 
     def _init_style(self):
         self.setStyleSheet(
@@ -101,13 +103,14 @@ class MainWindow(QMainWindow):
         left_layout.setContentsMargins(0, 0, 0, 0)
 
         self.buttons = {}
-        for text in ["数据上传", "风险识别", "预警推送", "应对建议", "用户反馈"]:
+        for text in ["V2 平台", "数据上传", "风险识别", "预警推送", "应对建议", "用户反馈"]:
             btn = QPushButton(text)
             btn.clicked.connect(lambda checked, name=text: self.switch_function(name))
             self.buttons[text] = btn
             left_layout.addWidget(btn)
 
         self.operation_stack = QStackedWidget()
+        self.operation_stack.addWidget(self._create_v2_panel())
         self.operation_stack.addWidget(self._create_upload_panel())
         self.operation_stack.addWidget(self._create_analysis_panel())
         self.operation_stack.addWidget(self._create_alert_panel())
@@ -129,6 +132,7 @@ class MainWindow(QMainWindow):
         right_layout.setContentsMargins(0, 0, 0, 0)
 
         self.result_stack = QStackedWidget()
+        self.result_stack.addWidget(self._create_v2_result())
         self.result_stack.addWidget(self._create_upload_result())
         self.result_stack.addWidget(self._create_analysis_result())
         self.result_stack.addWidget(self._create_alert_result())
@@ -142,6 +146,52 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(self.left_widget)
         main_layout.addWidget(self.right_widget, stretch=1)
+
+    def _create_v2_panel(self):
+        """V2 平台（业务/管理双模式）左侧说明面板。"""
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        layout.addWidget(QLabel("🚀 数治骑迹 V2 平台"))
+        tip = QLabel(
+            "右侧内嵌 V2 Web 工作台：\n\n"
+            "· 业务模式：核心指标 / 四套热点图层 /\n"
+            "  网格详情 / AI 治理建议与依据溯源\n"
+            "· 管理模式：轨迹与路网上传、发起分析、\n"
+            "  参数下发、审计日志\n\n"
+            "需先启动后端：python backend/run.py\n"
+            "（默认 http://127.0.0.1:5000）"
+        )
+        tip.setWordWrap(True)
+        tip.setStyleSheet("color:#666666;")
+        layout.addWidget(tip)
+        reload_btn = QPushButton("重新加载 V2 页面")
+        reload_btn.clicked.connect(self._reload_v2_view)
+        layout.addWidget(reload_btn)
+        layout.addStretch()
+        return panel
+
+    def _create_v2_result(self):
+        """V2 平台右侧：QWebEngineView 加载 V2 Web 首页。"""
+        self.v2_view = QWebEngineView()
+        return self.v2_view
+
+    def _v2_backend_ready(self) -> bool:
+        try:
+            r = requests.get(f"{services.V2_API_BASE.rsplit('/api/v2', 1)[0]}/health", timeout=2)
+            return r.status_code == 200
+        except Exception:
+            return False
+
+    def _reload_v2_view(self):
+        if self._v2_backend_ready():
+            self.v2_view.load(QUrl(f"{services.V2_API_BASE.rsplit('/api/v2', 1)[0]}/"))
+            self._update_status("V2 平台已加载")
+        else:
+            self.v2_view.setHtml(
+                "<h2 style='font-family:Microsoft YaHei;color:#d93025;'>后端未启动</h2>"
+                "<p style='font-family:Microsoft YaHei;'>请先运行 <b>python backend/run.py</b>，"
+                "然后点击「重新加载 V2 页面」。</p>")
+            self._update_status("后端不可达：http://127.0.0.1:5000")
 
     def _create_upload_panel(self):
         panel = QWidget()
@@ -347,9 +397,11 @@ class MainWindow(QMainWindow):
         self.status_label.setText(text)
 
     def switch_function(self, name: str):
-        index = ["数据上传", "风险识别", "预警推送", "应对建议", "用户反馈"].index(name)
+        index = ["V2 平台", "数据上传", "风险识别", "预警推送", "应对建议", "用户反馈"].index(name)
         self.operation_stack.setCurrentIndex(index)
         self.result_stack.setCurrentIndex(index)
+        if name == "V2 平台" and self.v2_view.url().isEmpty():
+            self._reload_v2_view()
         for btn_name, btn in self.buttons.items():
             btn.setStyleSheet(
                 "background-color:#165DFF;color:#FFFFFF;border-radius:8px;height:38px;font-weight:500;"

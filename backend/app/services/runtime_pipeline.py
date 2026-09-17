@@ -47,7 +47,8 @@ FEEDBACK_FILE = RUNTIME_DIR / "feedback_records.json"
 MAP_FILE = ROOT_DIR / "outputs" / "risk_hotspots.html"
 MAP_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-DEFAULT_AMAP_KEY = os.getenv("AMAP_WEB_KEY", "a7fd9560ffd58dcc12262f8f3d834b53")
+# V2 改造（AC30）：不允许源码中出现完整密钥，地图 key 一律走环境变量
+DEFAULT_AMAP_KEY = os.getenv("AMAP_WEB_KEY", "")
 OVERSPEED_THRESHOLD = float(os.getenv("OVERSPEED_THRESHOLD_KMH", 20))
 GRID_CELL_SIZE = float(os.getenv("GRID_CELL_SIZE_DEG", 0.0045))
 
@@ -564,7 +565,30 @@ def load_feedback_records() -> list[Dict[str, Any]]:
 
 
 def bootstrap_runtime_assets():
-    """启动时自动装载示例数据与默认分析结果。"""
+    """启动时装载默认资源。
+
+    V2 改造（需求手册 AC01）：启动后不再自动加载旧平台 data.csv/test_data.csv，
+    首页默认提示选择批次；若存在 2024-06-05 亦庄批次则标记为当前默认批次。
+    """
+    try:  # V2：确保亦庄批次存在并作为默认当前批次
+        from .v2.data_import import import_trajectory_csv, get_batch_meta, list_batches
+        has_yz = any(
+            "2024-06-05" in (b.get("time_start") or "")
+            for b in list_batches()
+        )
+        if not has_yz:
+            default_csv = ROOT_DIR / "甲方新需求" / "TDs_data_20240605_morning_peak.csv"
+            if default_csv.exists():
+                import_trajectory_csv(default_csv, default_csv.name)
+    except Exception:
+        pass
+    # V1 兼容：仅在完全没有任何 V2 批次时，才装载旧示例数据供旧页面演示
+    try:
+        from .v2.data_import import list_batches as _lb
+        if _lb():
+            return
+    except Exception:
+        pass
     if not TRAJECTORY_FILE.exists():
         sample = ROOT_DIR / "data.csv"
         if not sample.exists():

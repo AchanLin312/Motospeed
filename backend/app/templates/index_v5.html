@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数治骑迹 V2 · 外卖电动车多风险识别与治理辅助平台</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --bg-soft: #f0f5ff;
+            --bg-panel: #ffffff;
+            --bg-muted: #f7faff;
+            --brand-blue: #1e40af;
+            --brand-accent: #1d4ed8;
+            --navy-900: #0d2847;
+            --slate-600: #3d5a80;
+            --slate-500: #5a7ba8;
+            --blue-border: #c7d2fe;
+            --tag-bg: #dbeafe;
+            --danger: #d93025;
+            --warning: #f59e0b;
+            --success: #0f9d58;
+            --shadow-sm: 0 12px 30px rgba(30, 64, 175, 0.08);
+            --radius-lg: 18px;
+            --radius-md: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "PingFang SC", "Microsoft YaHei", -apple-system, sans-serif;
+            background: linear-gradient(180deg, #eef4ff 0%, #f8fbff 100%);
+            color: var(--navy-900);
+            min-height: 100vh;
+        }
+
+        header {
+            background: linear-gradient(120deg, #16337f, #1d4ed8);
+            color: #fff;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            box-shadow: var(--shadow-sm);
+        }
+
+        header .brand {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-right: auto;
+        }
+
+        header .brand h1 {
+            font-size: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        header .brand p {
+            font-size: 12px;
+            opacity: 0.85;
+        }
+
+        .mode-switch {
+            display: flex;
+            background: rgba(255, 255, 255, 0.14);
+            border-radius: 10px;
+            padding: 4px;
+        }
+
+        .mode-switch button {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.75);
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        .mode-switch button.active {
+            background: #fff;
+            color: var(--brand-blue);
+            font-weight: 600;
+        }
+
+        .ver-select {
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 13px;
+            max-width: 240px;
+        }
+
+        .ver-select option {
+            color: var(--navy-900);
+        }
+
+        main {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* 指标卡 */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .kpi {
+            background: var(--bg-panel);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            border: 1px solid #e2e8ff;
+            box-shadow: var(--shadow-sm);
+            position: relative;
+        }
+
+        .kpi span {
+            font-size: 12px;
+            color: var(--slate-500);
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .kpi strong {
+            font-size: 24px;
+            color: var(--brand-blue);
+        }
+
+        .kpi strong.long {
+            font-size: 16px;
+            word-break: break-all;
+            line-height: 1.25;
+            display: block;
+            margin-top: 2px;
+        }
+
+        .kpi small {
+            font-size: 11px;
+            color: var(--slate-500);
+            margin-left: 4px;
+        }
+
+        .kpi .tip {
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            font-size: 11px;
+            color: var(--slate-500);
+            cursor: help;
+        }
+
+        /* 主体布局 */
+        .workspace {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 16px;
+            align-items: start;
+        }
+
+        @media (max-width: 1100px) {
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--bg-panel);
+            border-radius: var(--radius-lg);
+            padding: 18px;
+            border: 1px solid #e2e8ff;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .panel h2 {
+            font-size: 16px;
+            color: var(--navy-900);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        /* 图层切换 */
+        .layer-tabs {
+            display: flex;
+            gap: 6px;
+            background: var(--bg-soft);
+            padding: 4px;
+            border-radius: 8px;
+        }
+
+        .layer-tabs button {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--slate-600);
+            cursor: pointer;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+
+        .layer-tabs button.active {
+            background: var(--brand-accent);
+            color: #fff;
+        }
+
+        #map {
+            width: 100%;
+            height: 560px;
+            border-radius: var(--radius-md);
+            z-index: 0;
+        }
+
+        .legend {
+            background: #fff;
+            padding: 10px 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            font-size: 12px;
+            line-height: 1.9;
+        }
+
+        .legend .sw {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            margin-right: 6px;
+            vertical-align: -1px;
+        }
+
+        .fallback-banner {
+            margin-top: 10px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            background: #fff7e6;
+            border-left: 4px solid var(--warning);
+            color: #8a5a00;
+            display: none;
+        }
+
+        .status-line {
+            margin-top: 10px;
+            font-size: 13px;
+            color: var(--slate-500);
+        }
+
+        /* 右侧详情 */
+        .detail-empty {
+            color: var(--slate-500);
+            font-size: 13px;
+            padding: 24px 8px;
+            text-align: center;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin: 10px 0;
+        }
+
+        .detail-grid .item {
+            background: var(--bg-muted);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 12px;
+        }
+
+        .detail-grid .item b {
+            display: block;
+            color: var(--slate-600);
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            background: var(--tag-bg);
+            color: var(--brand-blue);
+        }
+
+        .badge.high {
+            background: #fde8e8;
+            color: var(--danger);
+        }
+
+        .badge.low_exposure {
+            background: #fff3d6;
+            color: #8a5a00;
+        }
+
+        .advice-section {
+            margin-top: 10px;
+        }
+
+        .advice-section h4 {
+            font-size: 13px;
+            color: var(--brand-blue);
+            margin: 8px 0 4px;
+        }
+
+        .advice-section ul {
+            padding-left: 18px;
+            font-size: 12.5px;
+            color: var(--slate-600);
+            line-height: 1.7;
+        }
+
+        .advice-meta {
+            font-size: 11px;
+            color: var(--slate-500);
+            margin-top: 8px;
+        }
+
+        .basis-box {
+            background: var(--bg-muted);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+
+        .basis-box .b-item {
+            border-bottom: 1px dashed var(--blue-border);
+            padding: 6px 0;
+        }
+
+        .basis-box .b-item:last-child {
+            border-bottom: none;
+        }
+
+        .basis-box b {
+            color: var(--brand-blue);
+        }
+
+        button.primary {
+            background: var(--brand-accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 9px 16px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+
+        button.primary:hover {
+            opacity: 0.9;
+        }
+
+        button.primary:disabled {
+            background: #9db4e8;
+            cursor: not-allowed;
+        }
+
+        button.ghost {
+            background: #fff;
+            color: var(--brand-accent);
+            border: 1px solid var(--brand-accent);
+            border-radius: 8px;
+            padding: 8px 14px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        /* 导出工具条 */
+        .export-bar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        /* 管理模式 */
+        #adminView {
+            display: none;
+        }
+
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 16px;
+        }
+
+        .admin-grid .panel {
+            margin-bottom: 0;
+        }
+
+        .field {
+            margin-bottom: 10px;
+        }
+
+        .field label {
+            display: block;
+            font-size: 12px;
+            color: var(--slate-600);
+            margin-bottom: 4px;
+        }
+
+        .field input,
+        .field select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--blue-border);
+            border-radius: 8px;
+            font-size: 13px;
+            background: #fff;
+            color: var(--navy-900);
+        }
+
+        table.data {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        table.data th,
+        table.data td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #eff2ff;
+            text-align: left;
+        }
+
+        table.data th {
+            color: var(--slate-500);
+            font-weight: 600;
+        }
+
+        .progress {
+            background: var(--bg-soft);
+            border-radius: 8px;
+            height: 14px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress>div {
+            background: linear-gradient(90deg, #1d4ed8, #3b82f6);
+            height: 100%;
+            width: 0%;
+            transition: width 0.4s;
+        }
+
+        .log-box {
+            background: #0d1b3d;
+            color: #9fd0ff;
+            font-family: Consolas, monospace;
+            font-size: 11.5px;
+            border-radius: 8px;
+            padding: 10px;
+            max-height: 220px;
+            overflow-y: auto;
+            margin-top: 8px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .token-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .token-row input {
+            flex: 1;
+            padding: 8px 10px;
+            border: 1px solid var(--blue-border);
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .cfg-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .hint {
+            font-size: 11.5px;
+            color: var(--slate-500);
+            margin-top: 4px;
+        }
+
+        .ok-text {
+            color: var(--success);
+        }
+
+        .err-text {
+            color: var(--danger);
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="brand">
+            <h1>数治骑迹 V2 · 外卖电动车多风险识别与治理辅助平台</h1>
+            <p id="verInfo">超速 / 疑似逆行 / 急变速 三类风险 · IVMM 地图匹配 · 熵权-TOPSIS 综合评分 · AI 治理建议</p>
+        </div>
+        <select id="verSelect" class="ver-select" title="分析版本">
+            <option value="">加载中…</option>
+        </select>
+        <div class="mode-switch">
+            <button id="bizBtn" class="active" onclick="switchMode('biz')">业务模式</button>
+            <button id="admBtn" onclick="switchMode('admin')">管理模式</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- ==================== 业务模式 ==================== -->
+        <div id="bizView">
+            <div class="kpi-grid" id="kpiGrid">
+                <div class="kpi"><span>分析状态</span><strong id="kpiStatus">-</strong></div>
+            </div>
+
+            <div class="workspace">
+                <div class="panel">
+                    <h2>
+                        风险热点地图
+                        <div class="layer-tabs">
+                            <button data-layer="comprehensive" class="active" onclick="switchLayer('comprehensive')">综合
+                                CRI</button>
+                            <button data-layer="overspeed" onclick="switchLayer('overspeed')">超速</button>
+                            <button data-layer="reverse" onclick="switchLayer('reverse')">逆行</button>
+                            <button data-layer="rapid" onclick="switchLayer('rapid')">急变速</button>
+                        </div>
+                    </h2>
+                    <div id="map"></div>
+                    <div class="fallback-banner" id="fallbackBanner"></div>
+                    <div class="status-line" id="mapStatus">加载热点数据…</div>
+                    <div class="export-bar">
+                        <button class="ghost" onclick="exportReport('json')">导出报告 JSON</button>
+                        <button class="ghost" onclick="exportReport('csv')">导出网格指标 CSV</button>
+                        <button class="ghost" onclick="exportHotspots()">导出当前图层热点 CSV</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>网格详情与 AI 治理建议</h2>
+                    <div id="detailBox">
+                        <div class="detail-empty">在地图上点击风险网格，查看指标详情并生成治理建议</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 管理模式 ==================== -->
+        <div id="adminView">
+            <div class="panel" style="margin-bottom:16px;">
+                <h2>管理员鉴权（X-Admin-Token）</h2>
+                <div class="token-row">
+                    <input type="password" id="adminToken" placeholder="输入管理令牌（环境变量 V2_ADMIN_TOKEN）" />
+                    <button class="primary" onclick="saveToken()">保存并验证</button>
+                </div>
+                <div class="hint">令牌仅保存在浏览器本地（localStorage），请求时通过 X-Admin-Token 头下发。</div>
+            </div>
+            <div class="admin-grid">
+                <div class="panel">
+                    <h2>① 轨迹批次上传 <span class="badge">POST /batches/trajectory</span></h2>
+                    <div class="field"><label>轨迹 CSV（DV01-DV08 自动校验）</label><input type="file" id="trajFile"
+                            accept=".csv" /></div>
+                    <div class="field"><label>批次名称（可选）</label><input type="text" id="trajName"
+                            placeholder="如：TDs_data_20240605_morning_peak" /></div>
+                    <button class="primary" onclick="uploadTrajectory()">上传轨迹</button>
+                    <div class="status-line" id="trajStatus"></div>
+                    <table class="data" id="batchTable">
+                        <thead>
+                            <tr>
+                                <th>批次</th>
+                                <th>数据源</th>
+                                <th>有效行</th>
+                                <th>车辆</th>
+                                <th>时间窗</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div class="panel">
+                    <h2>② 路网上传 <span class="badge">POST /road-networks</span></h2>
+                    <div class="field"><label>Shapefile ZIP（须含 .shp/.shx/.dbf/.prj）</label><input type="file"
+                            id="netFile" accept=".zip" /></div>
+                    <button class="primary" onclick="uploadRoadnet()">上传路网</button>
+                    <div class="status-line" id="netStatus"></div>
+                    <table class="data" id="netTable">
+                        <thead>
+                            <tr>
+                                <th>路网版本</th>
+                                <th>路段数</th>
+                                <th>创建时间</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div class="panel">
+                    <h2>③ 发起分析 <span class="badge">POST /analysis</span></h2>
+                    <div class="field"><label>轨迹批次</label><select id="anaBatch"></select></div>
+                    <div class="field"><label>路网版本（缺省取最新）</label><select id="anaNet"></select></div>
+                    <div class="field"><label>网格尺寸（米，50-500）</label><input type="number" id="anaCell" value="50"
+                            min="50" max="500" step="10" /></div>
+                    <button class="primary" onclick="startAnalysis()">开始分析（后台执行）</button>
+                    <div class="progress">
+                        <div id="anaProgress"></div>
+                    </div>
+                    <div class="status-line" id="anaStatus"></div>
+                    <table class="data" id="anaTable">
+                        <thead>
+                            <tr>
+                                <th>分析版本</th>
+                                <th>状态</th>
+                                <th>阶段</th>
+                                <th>进度</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div class="panel">
+                    <h2>④ 平台参数 <span class="badge">GET/PUT /admin/config</span></h2>
+                    <div class="cfg-grid">
+                        <div class="field"><label>超速阈值 km/h（5-80）</label><input type="number" id="cfgSpeed" /></div>
+                        <div class="field"><label>网格尺寸 m（50-500）</label><input type="number" id="cfgGrid" /></div>
+                    </div>
+                    <div class="btn-row">
+                        <button class="ghost" onclick="loadConfig()">读取配置</button>
+                        <button class="primary" onclick="saveConfig()">下发配置</button>
+                    </div>
+                    <div class="status-line" id="cfgStatus"></div>
+                    <div class="status-line" id="llmStatus"></div>
+                </div>
+
+                <div class="panel" style="grid-column: 1 / -1;">
+                    <h2>⑤ 审计日志 <span class="badge">GET /admin/logs</span></h2>
+                    <button class="ghost" onclick="loadAdminLogs()">刷新日志</button>
+                    <div class="log-box" id="logBox">暂无日志</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API = '/api/v2';
+        const LAYER_LABEL = { comprehensive: '综合 CRI', overspeed: '超速', reverse: '逆行', rapid: '急变速' };
+        const SECTION_LABEL = {
+            field_actions: '一线执法动作',
+            road_environment_checks: '道路环境排查',
+            platform_coordination: '平台协同治理',
+            education_actions: '安全教育建议',
+            verification: '效果验证方案'
+        };
+        let map = null, baseLayers = {}, currentLayerCtl = null;
+        let hotspotLayer = null, currentLayer = 'comprehensive';
+        let currentAV = null, lastSummary = null, currentGridId = null;
+
+        /* ---------------- 通用 ---------------- */
+        function adminHeaders() {
+            const t = localStorage.getItem('v2_admin_token') || '';
+            return t ? { 'X-Admin-Token': t } : {};
+        }
+        async function fetchJSON(url, options = {}) {
+            const resp = await fetch(url, options);
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) throw new Error(data.error || data.message || resp.statusText);
+            return data;
+        }
+        function esc(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        function fmt(v, digits = 1) {
+            return (v === null || v === undefined || v === '' || Number.isNaN(Number(v))) ? '-' : Number(v).toFixed(digits);
+        }
+
+        /* ---------------- 模式切换 ---------------- */
+        function switchMode(mode) {
+            const biz = mode === 'biz';
+            document.getElementById('bizView').style.display = biz ? '' : 'none';
+            document.getElementById('adminView').style.display = biz ? 'none' : 'block';
+            document.getElementById('bizBtn').classList.toggle('active', biz);
+            document.getElementById('admBtn').classList.toggle('active', !biz);
+            if (!biz) { initAdmin(); }
+            else if (map) { setTimeout(() => map.invalidateSize(), 60); }
+        }
+
+        /* ---------------- 业务模式：版本与指标 ---------------- */
+        async function initVersions() {
+            const data = await fetchJSON(`${API}/analysis`);
+            const sel = document.getElementById('verSelect');
+            const avs = (data.completed || []).map(c => c.analysis_version);
+            const running = (data.tasks || []).filter(t => t.status === 'running').map(t => t.analysis_version);
+            const all = [...new Set([...running, ...avs])];
+            sel.innerHTML = all.length
+                ? all.map(av => `<option value="${esc(av)}">${esc(av)}</option>`).join('')
+                : '<option value="">暂无分析版本</option>';
+            if (all.length) { currentAV = all[0]; sel.value = currentAV; await loadSummary(); }
+            else { document.getElementById('mapStatus').textContent = '尚无分析结果：请切换到管理模式上传数据并发起分析。'; }
+        }
+        document.getElementById('verSelect').addEventListener('change', async (e) => {
+            currentAV = e.target.value || null;
+            currentGridId = null;
+            document.getElementById('detailBox').innerHTML =
+                '<div class="detail-empty">在地图上点击风险网格，查看指标详情并生成治理建议</div>';
+            await loadSummary();
+        });
+
+        async function loadSummary() {
+            if (!currentAV) return;
+            try {
+                lastSummary = await fetchJSON(`${API}/analysis/${currentAV}/summary`);
+                renderKPIs(lastSummary);
+                if (lastSummary.batch && lastSummary.batch.bbox) {
+                    const b = lastSummary.batch.bbox;
+                    map.fitBounds([[b[1], b[0]], [b[3], b[2]]], { padding: [24, 24] });
+                }
+                await loadHotspots(currentLayer);
+            } catch (err) {
+                document.getElementById('mapStatus').innerHTML =
+                    `<span class="err-text">摘要加载失败：${esc(err.message)}</span>`;
+            }
+        }
+
+        function renderKPIs(s) {
+            const g = document.getElementById('kpiGrid');
+            const bh = s.behavior || {};
+            const ec = bh.event_counts || {};
+            const qf = s.quality_flag_counts || {};
+            const w = (s.scoring && s.scoring.weights) || {};
+            const mo = (s.moran && s.moran.global_moran) || {};
+            const hs = s.hotspots || {};
+            const cards = [
+                ['匹配率', fmt(s.match && s.match.match_rate * 100, 1) + '%',
+                    `${fmt(s.match && s.match.points_total, 0)} 点 → ${s.match ? s.match.net_id : '-'}`],
+                ['事件总数', fmt(bh.total_events, 0), '三类行为事件'],
+                ['超速', fmt(ec.overspeed, 0), `≥${(bh.overspeed_threshold_kmh || 20)} km/h 持续`],
+                ['疑似逆行', fmt(ec.reverse, 0), '子链判定'],
+                ['急加速 / 急减速', `${fmt(ec.rapid_accel, 0)} / ${fmt(ec.rapid_decel, 0)}`,
+                    `阈值 ${fmt(bh.accel_thresholds && bh.accel_thresholds.accel_threshold_mps2, 2)}/${fmt(bh.accel_thresholds && bh.accel_thresholds.decel_threshold_mps2, 2)} m/s²`],
+                ['网格总数', fmt(s.grid_count, 0), `valid ${fmt(qf.valid, 0)} · 低暴露 ${fmt(qf.low_exposure, 0)}`],
+                ['CRI 峰值', fmt(s.cri_stats && s.cri_stats.max, 1), '熵权-TOPSIS 0-100'],
+                ['熵权 W₁/W₂/W₃', `${fmt(w.overspeed_rate * 100, 1)}/${fmt(w.reverse_rate * 100, 1)}/${fmt(w.rapid_rate * 100, 1)}%`,
+                    '熵权法按本批数据的网格间差异自动定权（W₁超速率/W₂逆行率/W₃急变速率），随批次变化，非人工设定'],
+                ["Moran's I", fmt(mo.moran_i, 3), `z=${fmt(mo.z_score, 2)}, p=${fmt(mo.p_value, 3)}；全局空间自相关检验：I 越接近 +1 风险网格越成片聚集，接近 0 或 p>0.05 表示整体接近随机分布（此时 LISA/热点图上的零星格子需谨慎解读）`],
+                ['显著热点', `${fmt(hs.comprehensive && hs.comprehensive.n_significant, 0)} 格`,
+                    `超速 ${fmt(hs.overspeed && hs.overspeed.n_significant, 0)} · 逆行 ${fmt(hs.reverse && hs.reverse.n_significant, 0)} · 急变速 ${fmt(hs.rapid && hs.rapid.n_significant, 0)}`],
+            ];
+            g.innerHTML = cards.map(([label, val, tip], i) => `
+        <div class="kpi"><span>${esc(label)}</span><strong${String(val).length > 9 ? ' class="long"' : ''}>${esc(val)}</strong>
+        ${i === 0 ? '' : `<span class="tip" title="${esc(tip)}">ⓘ</span>`}
+        ${i === 0 ? `<small style="display:block;margin-top:4px;">${esc(tip)}</small>` : ''}</div>`).join('');
+        }
+
+        /* ---------------- 地图 ---------------- */
+        function initMap() {
+            map = L.map('map', { zoomControl: true }).setView([39.77, 116.52], 13);
+            const gaode = L.tileLayer(
+                'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+                { subdomains: '1234', maxZoom: 19, attribution: '© 高德地图' });
+            const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                { maxZoom: 19, attribution: '© OpenStreetMap' });
+            gaode.addTo(map);
+            baseLayers = { '高德底图': gaode, 'OSM': osm };
+            L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
+            const legend = L.control({ position: 'bottomleft' });
+            legend.onAdd = function () {
+                const div = L.DomUtil.create('div', 'legend');
+                div.innerHTML = '<b>风险等级（Gi* Z 分级）</b><br>'
+                    + '<span class="sw" style="background:#d93025"></span>高（Z≥2.58）<br>'
+                    + '<span class="sw" style="background:#f59e0b"></span>中（Z≥1.96）<br>'
+                    + '<span class="sw" style="background:#fbbf24"></span>一般显著（Z≥1.65）<br>'
+                    + '<span class="sw" style="background:#93c5fd"></span>Top8 兜底关注';
+                return div;
+            };
+            legend.addTo(map);
+        }
+
+        const RISK_COLOR = { high: '#d93025', medium: '#f59e0b', low: '#fbbf24', fallback: '#93c5fd' };
+
+        function styleFeature(f) {
+            const p = f.properties || {};
+            const st = p.selection_type || 'hotspot_gi';
+            const color = st === 'top_risk_fallback' ? RISK_COLOR.fallback
+                : (RISK_COLOR[p.risk_level] || RISK_COLOR.fallback);
+            return { color, fillColor: color, fillOpacity: 0.4, weight: 1.5 };
+        }
+
+        function onEachFeature(f, layer) {
+            const p = f.properties || {};
+            layer.bindTooltip(
+                `<b>${esc(p.grid_id)}</b><br>图层值：${esc(fmt(p.layer_value, 2))}<br>` +
+                `Gi* Z：${esc(fmt(p.gi_z, 2))}<br>风险等级：${esc(p.risk_level || '-')}`, { sticky: true });
+            layer.on('click', () => openGridDetail(p.grid_id));
+        }
+
+        async function loadHotspots(layer) {
+            currentLayer = layer;
+            document.querySelectorAll('.layer-tabs button').forEach(b =>
+                b.classList.toggle('active', b.dataset.layer === layer));
+            if (!currentAV) return;
+            const st = document.getElementById('mapStatus');
+            const fb = document.getElementById('fallbackBanner');
+            st.textContent = '加载热点数据…';
+            fb.style.display = 'none';
+            try {
+                const gj = await fetchJSON(`${API}/hotspots?layer=${layer}&analysis_version=${encodeURIComponent(currentAV)}`);
+                if (hotspotLayer) { map.removeLayer(hotspotLayer); hotspotLayer = null; }
+                const feats = gj.features || [];
+                hotspotLayer = L.geoJSON(gj, { style: styleFeature, onEachFeature });
+                hotspotLayer.addTo(map);
+                if (!feats.length) {
+                    st.textContent = `【${LAYER_LABEL[layer]}】当前无热点要素。`;
+                } else {
+                    const types = new Set(feats.map(f => (f.properties || {}).selection_type));
+                    st.textContent = `【${LAYER_LABEL[layer]}】热点 ${feats.length} 格` +
+                        (types.has('top_risk_fallback') ? '（Gi* 无显著网格，展示 CRI/指标 Top8 兜底关注网格）' : '');
+                    const bounds = hotspotLayer.getBounds();
+                    if (bounds.isValid()) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+                }
+            } catch (err) {
+                st.innerHTML = `<span class="err-text">热点加载失败：${esc(err.message)}</span>`;
+                if (String(err.message).includes('404') || String(err.message).includes('不存在')) {
+                    fb.style.display = 'block';
+                    fb.textContent = '尚无可用分析结果：请先在管理模式上传轨迹与路网并完成一次分析。';
+                }
+            }
+        }
+        function switchLayer(layer) { loadHotspots(layer); }
+
+        /* ---------------- 网格详情 + AI 建议 ---------------- */
+        async function openGridDetail(gridId) {
+            currentGridId = gridId;
+            const box = document.getElementById('detailBox');
+            box.innerHTML = '<div class="detail-empty">加载网格指标…</div>';
+            try {
+                const data = await fetchJSON(`${API}/grids/${encodeURIComponent(gridId)}?analysis_version=${encodeURIComponent(currentAV)}`);
+                renderGrid(data.grid);
+            } catch (err) {
+                box.innerHTML = `<div class="detail-empty err-text">网格详情加载失败：${esc(err.message)}</div>`;
+            }
+        }
+
+        function renderGrid(g) {
+            const box = document.getElementById('detailBox');
+            const flag = g.quality_flag || '-';
+            const isValid = flag === 'valid';
+            const criAvail = g.cri_available === true || g.cri_available === 'True' || g.cri_available === 'true';
+            const criText = !isValid
+                ? `无数据（${flag === 'low_exposure' ? '低暴露' : esc(flag)}）`
+                : (criAvail ? esc(fmt(g.cri, 1)) : '不可用（运动样本不足）');
+            const notice = isValid ? '' : `
+        <div class="status-line" style="color:#b45309;margin-top:8px;">⚠ 该网格暴露里程或行驶段不足，其事件率视为"无数据"（留空而非 0），不参与热点识别与综合评分，以免少量事件被放大成统计噪声；上方事件计数仍为实际观测值。</div>`;
+            box.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <b style="font-size:16px;">${esc(g.grid_id)}</b>
+            <span class="badge ${esc(flag)}">${esc(flag === 'valid' ? '有效网格' : flag === 'low_exposure' ? '低暴露' : '数据不足')}</span>
+            ${g.advice_available ? '<span class="badge">已有建议</span>' : ''}
+        </div>
+        <div class="detail-grid">
+            <div class="item"><b>综合风险 CRI</b>${criText}</div>
+            <div class="item"><b>暴露里程</b>${esc(fmt(g.exposure_km, 3))} km</div>
+            <div class="item"><b>车辆 / 行驶段</b>${esc(fmt(g.vehicle_count, 0))} / ${esc(fmt(g.segment_count, 0))}</div>
+            <div class="item"><b>事件总数</b>${esc(fmt(g.total_events, 0))}</div>
+            <div class="item"><b>超速事件</b>${esc(fmt(g.overspeed_count, 0))}（率 ${esc(fmt(g.overspeed_rate, 1))}）</div>
+            <div class="item"><b>逆行事件</b>${esc(fmt(g.reverse_count, 0))}（率 ${esc(fmt(g.reverse_rate, 1))}）</div>
+            <div class="item"><b>急加速 / 急减速</b>${esc(fmt(g.rapid_accel_count, 0))} / ${esc(fmt(g.rapid_decel_count, 0))}</div>
+            <div class="item"><b>中心坐标</b>${esc(fmt(g.center_lon, 5))}, ${esc(fmt(g.center_lat, 5))}</div>
+        </div>
+        ${notice}
+        <div class="btn-row">
+            <button class="primary" id="adviceBtn" onclick="generateAdvice(false)">
+                ${g.advice_available ? '重新生成 AI 建议' : '生成 AI 治理建议'}
+            </button>
+            ${g.advice_available ? '<button class="ghost" onclick="loadCachedAdvice()">查看已有建议</button>' : ''}
+        </div>
+        <div class="status-line" id="adviceStatus"></div>
+        <div id="adviceBox"></div>`;
+        }
+
+        async function loadCachedAdvice() {
+            if (!currentGridId) return;
+            document.getElementById('adviceStatus').textContent = '读取已有建议…';
+            // 缓存命中时不会重复调用 LLM
+            await generateAdvice(false);
+        }
+
+        async function generateAdvice(force, silent) {
+            if (!currentGridId) return;
+            const btn = document.getElementById('adviceBtn');
+            const st = document.getElementById('adviceStatus');
+            if (btn) { btn.disabled = true; btn.textContent = '生成中（最长约 45s）…'; }
+            if (!silent) st.textContent = '正在生成 AI 治理建议（知识库检索 + LLM/规则兜底）…';
+            try {
+                const rec = await fetchJSON(`${API}/advice/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ grid_id: currentGridId, analysis_version: currentAV, force: !!force })
+                });
+                renderAdvice(rec);
+                st.textContent = '';
+            } catch (err) {
+                st.innerHTML = `<span class="err-text">建议生成失败：${esc(err.message)}</span>`;
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = '重新生成 AI 建议'; }
+            }
+        }
+
+        function renderAdvice(rec) {
+            const box = document.getElementById('adviceBox');
+            const srcTag = rec.source === 'llm'
+                ? `<span class="badge">LLM · ${esc(rec.model_name || '')}</span>`
+                : '<span class="badge">本地规则兜底</span>';
+            const cacheTag = rec.cached ? '<span class="badge">缓存命中</span>' : '';
+            const summary = rec.risk_summary || '';
+            let html = `
+        <div class="advice-section">
+            <div style="margin-bottom:6px;">${srcTag} ${cacheTag}
+                <span class="badge">${esc(rec.advice_id || '')}</span></div>
+            <div class="basis-box" style="margin-top:0;"><b>风险摘要</b><br>${esc(summary)}</div>`;
+            for (const [key, label] of Object.entries(SECTION_LABEL)) {
+                const arr = rec[key];
+                if (!Array.isArray(arr) || !arr.length) continue;
+                html += `<h4>${esc(label)}</h4><ul>${arr.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+            }
+            if (rec.caution_note) {
+                html += `<div class="hint" style="margin-top:8px;">⚠ ${esc(rec.caution_note)}</div>`;
+            }
+            html += `
+        <div class="btn-row">
+            <button class="ghost" onclick="loadBasis()">查看建议依据（溯源）</button>
+        </div>
+        <div class="advice-meta">知识库 ${esc(rec.knowledge_base_version || '-')} · 提示词 ${esc(rec.prompt_version || '-')} · 生成于 ${esc(rec.generated_at || '-')}</div>
+        <div id="basisBox"></div>
+    </div>`;
+            box.innerHTML = html;
+        }
+
+        async function loadBasis() {
+            const target = document.getElementById('basisBox');
+            target.innerHTML = '<div class="detail-empty">加载依据…</div>';
+            try {
+                const data = await fetchJSON(`${API}/advice/${encodeURIComponent(currentGridId)}/basis?analysis_version=${encodeURIComponent(currentAV)}`);
+                let html = '<div class="basis-box"><b>建议依据</b>';
+                html += `<div class="hint">命中规则：${(data.retrieved_rules || []).map(r => esc(r.rule_id || r)).join('、') || '-'}</div>`;
+                for (const b of (data.basis || [])) {
+                    html += `<div class="b-item"><b>${esc(b.basis_id)}</b> ${esc(b.name || '')}<br>
+                     <span class="hint">${esc((b.content || '').slice(0, 220))}${(b.content || '').length > 220 ? '…' : ''}</span>
+                     ${b.source ? `<br><span class="hint">来源：${esc(b.source)}</span>` : ''}</div>`;
+                }
+                html += '</div>';
+                target.innerHTML = html;
+            } catch (err) {
+                target.innerHTML = `<div class="detail-empty err-text">依据加载失败：${esc(err.message)}</div>`;
+            }
+        }
+
+        /* ---------------- 导出 ---------------- */
+        function exportReport(format) {
+            if (!currentAV) { alert('尚无分析版本'); return; }
+            location.href = `${API}/exports/report?format=${format}&analysis_version=${encodeURIComponent(currentAV)}`;
+        }
+        function exportHotspots() {
+            if (!currentAV) { alert('尚无分析版本'); return; }
+            location.href = `${API}/exports/hotspots?layer=${currentLayer}&analysis_version=${encodeURIComponent(currentAV)}`;
+        }
+
+        /* ---------------- 管理模式 ---------------- */
+        let adminInited = false;
+        function initAdmin() {
+            const saved = localStorage.getItem('v2_admin_token') || '';
+            document.getElementById('adminToken').value = saved;
+            loadBatches(); loadNetworks(); refreshAnalysisTable();
+            if (!adminInited) {
+                adminInited = true;
+                setInterval(() => {  // 管理视图可见时自动轮询运行中任务
+                    if (document.getElementById('adminView').style.display !== 'none') refreshAnalysisTable();
+                }, 5000);
+            }
+        }
+        function saveToken() {
+            localStorage.setItem('v2_admin_token', document.getElementById('adminToken').value.trim());
+            loadAdminLogs(); loadConfig();
+        }
+
+        async function uploadTrajectory() {
+            const f = document.getElementById('trajFile').files[0];
+            const st = document.getElementById('trajStatus');
+            if (!f) { st.innerHTML = '<span class="err-text">请选择 CSV 文件</span>'; return; }
+            st.textContent = '上传中（DV01-DV08 校验）…';
+            const fd = new FormData();
+            fd.append('file', f);
+            const name = document.getElementById('trajName').value.trim();
+            if (name) fd.append('source_name', name);
+            try {
+                const meta = await fetchJSON(`${API}/batches/trajectory`, { method: 'POST', body: fd });
+                st.innerHTML = `<span class="ok-text">上传成功：${esc(meta.batch_id)} · 有效行 ${esc(fmt(meta.rows_kept, 0))} · 车辆 ${esc(fmt(meta.vehicle_count, 0))} · 隔离 ${esc(fmt(meta.rows_isolated, 0))}</span>`;
+                loadBatches();
+            } catch (err) {
+                st.innerHTML = `<span class="err-text">上传失败：${esc(err.message)}</span>`;
+            }
+        }
+
+        async function uploadRoadnet() {
+            const f = document.getElementById('netFile').files[0];
+            const st = document.getElementById('netStatus');
+            if (!f) { st.innerHTML = '<span class="err-text">请选择 shapefile ZIP</span>'; return; }
+            st.textContent = '上传并解析路网…';
+            const fd = new FormData();
+            fd.append('file', f);
+            try {
+                const meta = await fetchJSON(`${API}/road-networks`, {
+                    method: 'POST', body: fd, headers: adminHeaders()
+                });
+                st.innerHTML = `<span class="ok-text">路网就绪：${esc(meta.net_id || meta.network_id || '')}</span>`;
+                loadNetworks();
+            } catch (err) {
+                st.innerHTML = `<span class="err-text">上传失败：${esc(err.message)}</span>`;
+            }
+        }
+
+        async function loadBatches() {
+            try {
+                const data = await fetchJSON(`${API}/batches`);
+                document.querySelector('#batchTable tbody').innerHTML = (data.batches || []).map(b => `
+            <tr><td>${esc(b.batch_id)}</td><td>${esc(b.source_name || '-')}</td>
+            <td>${esc(fmt(b.rows_kept, 0))}</td><td>${esc(fmt(b.vehicle_count, 0))}</td>
+            <td>${esc(b.time_start || '-')} ~ ${esc(b.time_end || '-')}</td></tr>`).join('')
+                    || '<tr><td colspan="5">暂无批次</td></tr>';
+                const sel = document.getElementById('anaBatch');
+                sel.innerHTML = (data.batches || []).map(b =>
+                    `<option value="${esc(b.batch_id)}">${esc(b.batch_id)}（${esc(b.source_name || '')}）</option>`).join('');
+            } catch (err) { /* 静默 */ }
+        }
+
+        async function loadNetworks() {
+            try {
+                const data = await fetchJSON(`${API}/road-networks`);
+                const nets = data.road_networks || data.networks || data.items || [];
+                document.querySelector('#netTable tbody').innerHTML = nets.map(n => `
+            <tr><td>${esc(n.net_id)}</td><td>${esc(fmt(n.segment_count ?? n.edge_count, 0))}</td>
+            <td>${esc(n.built_at || n.created_at || '-')}</td></tr>`).join('')
+                    || '<tr><td colspan="3">暂无路网</td></tr>';
+                const sel = document.getElementById('anaNet');
+                sel.innerHTML = '<option value="">（自动选择最新）</option>' + nets.map(n =>
+                    `<option value="${esc(n.net_id)}">${esc(n.net_id)}</option>`).join('');
+            } catch (err) { /* 静默 */ }
+        }
+
+        async function startAnalysis() {
+            const st = document.getElementById('anaStatus');
+            const batchId = document.getElementById('anaBatch').value;
+            if (!batchId) { st.innerHTML = '<span class="err-text">请先上传轨迹批次</span>'; return; }
+            const body = { batch_id: batchId };
+            const netId = document.getElementById('anaNet').value;
+            if (netId) body.net_id = netId;
+            const cell = parseFloat(document.getElementById('anaCell').value);
+            if (!Number.isNaN(cell)) body.cell_size = cell;
+            st.textContent = '创建分析任务…';
+            try {
+                const res = await fetchJSON(`${API}/analysis`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                st.innerHTML = `<span class="ok-text">已创建 ${esc(res.analysis_version)}，后台执行中（IVMM→行为→网格→评分→热点）</span>`;
+                pollAnalysis(res.analysis_version);
+            } catch (err) {
+                st.innerHTML = `<span class="err-text">创建失败：${esc(err.message)}</span>`;
+            }
+        }
+
+        let pollTimer = null;
+        function pollAnalysis(av) {
+            if (pollTimer) clearInterval(pollTimer);
+            const st = document.getElementById('anaStatus');
+            const bar = document.getElementById('anaProgress');
+            pollTimer = setInterval(async () => {
+                try {
+                    const s = await fetchJSON(`${API}/analysis/${encodeURIComponent(av)}/status`);
+                    bar.style.width = `${Math.round((s.progress || 0) * 100)}%`;
+                    st.textContent = `[${s.status}] ${s.stage || ''} ${(s.progress || 0) * 100 < 100 && s.stage ? '' : ''}${s.message || ''}`;
+                    if (s.status === 'completed' || s.status === 'failed') {
+                        clearInterval(pollTimer); pollTimer = null;
+                        if (s.status === 'completed') {
+                            st.innerHTML = `<span class="ok-text">分析完成：${esc(av)}</span>`;
+                            document.getElementById('verSelect').insertAdjacentHTML('afterbegin',
+                                `<option value="${esc(av)}">${esc(av)}</option>`);
+                            document.getElementById('verSelect').value = av;
+                            currentAV = av;
+                            document.getElementById('verSelect').dispatchEvent(new Event('change'));
+                            switchMode('biz');
+                        } else {
+                            st.innerHTML = `<span class="err-text">分析失败：${esc(s.error || '未知错误')}</span>`;
+                        }
+                        refreshAnalysisTable();
+                    }
+                } catch (err) { /* 继续轮询 */ }
+            }, 2000);
+        }
+
+        async function refreshAnalysisTable() {
+            try {
+                const data = await fetchJSON(`${API}/analysis`);
+                const rows = [];
+                for (const t of (data.tasks || [])) {
+                    rows.push(`<tr><td>${esc(t.analysis_version)}</td><td>${esc(t.status)}</td>
+                <td>${esc(t.stage || '-')}</td><td>${Math.round((t.progress || 0) * 100)}%</td></tr>`);
+                }
+                for (const c of (data.completed || [])) {
+                    rows.push(`<tr><td>${esc(c.analysis_version)}</td><td class="ok-text">completed</td>
+                <td>-</td><td>100%</td></tr>`);
+                }
+                document.querySelector('#anaTable tbody').innerHTML =
+                    rows.join('') || '<tr><td colspan="4">暂无分析任务</td></tr>';
+            } catch (err) { /* 静默 */ }
+        }
+
+        async function loadConfig() {
+            const st = document.getElementById('cfgStatus');
+            try {
+                const cfg = await fetchJSON(`${API}/admin/config`, { headers: adminHeaders() });
+                document.getElementById('cfgSpeed').value = cfg.overspeed_threshold_kmh;
+                document.getElementById('cfgGrid').value = cfg.grid_size_m;
+                st.innerHTML = '<span class="ok-text">配置已读取</span>';
+                const llm = cfg.llm || {};
+                const host = (llm.api_base || '').replace(/^https?:\/\//, '').split('/')[0];
+                document.getElementById('llmStatus').innerHTML = llm.configured
+                    ? `<span class="ok-text">LLM：已接入（${esc(llm.model)} @ ${esc(host)}），建议由大模型生成</span>`
+                    : '<span class="err-text">LLM：未配置，建议由知识库规则模板兜底生成</span>';
+            } catch (err) {
+                st.innerHTML = `<span class="err-text">读取失败（需要管理令牌）：${esc(err.message)}</span>`;
+            }
+        }
+
+        async function saveConfig() {
+            const st = document.getElementById('cfgStatus');
+            try {
+                const res = await fetchJSON(`${API}/admin/config`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json', ...adminHeaders() },
+                    body: JSON.stringify({
+                        overspeed_threshold_kmh: parseFloat(document.getElementById('cfgSpeed').value),
+                        grid_size_m: parseFloat(document.getElementById('cfgGrid').value)
+                    })
+                });
+                const rej = res.rejected || {};
+                const rejText = Object.keys(rej).length ? `；拒绝项：${Object.entries(rej).map(([k, v]) => `${k}(${v})`).join('、')}` : '';
+                st.innerHTML = `<span class="ok-text">配置已下发${esc(rejText)}</span>`;
+            } catch (err) {
+                st.innerHTML = `<span class="err-text">下发失败（需要管理令牌）：${esc(err.message)}</span>`;
+            }
+        }
+
+        async function loadAdminLogs() {
+            const box = document.getElementById('logBox');
+            box.textContent = '加载日志…';
+            try {
+                const data = await fetchJSON(`${API}/admin/logs`, { headers: adminHeaders() });
+                const lines = (data.tasks || []).map(t =>
+                    `${t.started_at || '-'} | ${t.analysis_version} | ${t.status} | ${t.stage || ''} ${Math.round((t.progress || 0) * 100)}% | ${t.message || ''}${t.error ? ' | ERR: ' + t.error : ''}`);
+                lines.push(`--- 服务信息：管理鉴权 ${data.admin_mode_enabled ? '已启用' : '未启用（V2_ADMIN_TOKEN 未设置）'} · 生成于 ${data.generated_at}`);
+                box.textContent = lines.join('\n') || '暂无任务记录';
+            } catch (err) {
+                box.innerHTML = `<span class="err-text">日志加载失败（需要管理令牌）：${esc(err.message)}</span>`;
+            }
+        }
+
+        /* ---------------- 启动 ---------------- */
+        window.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            initVersions().catch(err => {
+                document.getElementById('mapStatus').innerHTML =
+                    `<span class="err-text">初始化失败：${esc(err.message)}</span>`;
+            });
+        });
+    </script>
+</body>
+
+</html>
