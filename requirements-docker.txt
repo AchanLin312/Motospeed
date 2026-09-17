@@ -13,8 +13,8 @@ scipy>=1.11
 shapely>=2.0
 pyproj>=3.6
 geopandas>=0.14
-esda>=2.12          # Getis-Ord Gi*
-libpysal>=4.9       # 空间权重（KNN）
+esda>=2.9,<2.10     # Getis-Ord Gi*（2.10+ 要求 Python>=3.12，镜像用 3.11；G_Local API 稳定）
+libpysal>=4.7       # 空间权重（KNN）
 
 # HTTP / LLM 调用
 requests>=2.31

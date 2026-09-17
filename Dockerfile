@@ -7,11 +7,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TZ=Asia/Shanghai
 
-# 时区（容器默认 UTC，分析时间戳统一为北京时间）
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends tzdata \
-    && ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-    && rm -rf /var/lib/apt/lists/*
+# 时区（基础镜像自带 tzdata，无需 apt 安装；分析时间戳统一为北京时间）
+RUN ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone
 
 WORKDIR /app
 
