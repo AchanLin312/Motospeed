@@ -1,6 +1,6 @@
 # V2 后端 Docker 镜像依赖清单。
-# 注意：项目根 requirements.txt 是 V1 时代清单（含 PyQt6 桌面依赖、缺 V2 空间分析依赖），
-# Docker 构建使用本文件；两份清单后续可合并整理。
+# 与根 requirements.txt 内容一致，唯一差异：镜像基于 Python 3.11，
+# esda 必须固定 <2.10（2.10+ 要求 Python>=3.12）。
 
 # Web 框架
 flask>=3.0

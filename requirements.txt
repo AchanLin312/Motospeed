@@ -1,23 +1,31 @@
-flask
-sqlalchemy
-geoalchemy2
-psycopg2-binary
-pymysql
-pandas
-geopandas
-pysal
-shapely
-pyproj
-werkzeug
-PyQt6==6.5.0
-PyQt6-WebEngine==6.5.0
-Pillow==10.3.0
-qdarkstyle==3.2.3
-folium==0.16.0
-# 3.0 新增依赖
-python-docx>=0.8.11
-openpyxl>=3.1.2
-numpy>=1.24.0
-# 3.6 新增依赖
-matplotlib>=3.7.0
+# V2 后端部署依赖清单（甲方 venv 部署 / 本地开发共用）。
+# 由 backend/ 与 spatial_analysis/ 的实际 import 梳理而来，V1 桌面依赖
+# （PyQt6 / qdarkstyle）与 V1 数据库依赖（geoalchemy2 / psycopg2 / pymysql）
+# 已移除。Docker 镜像用 requirements-docker.txt（Python 3.11，esda 需固定 <2.10）。
 
+# Web 框架
+flask>=3.0
+sqlalchemy>=2.0
+
+# 数据处理与空间分析（V2 七阶段流水线）
+pandas>=2.0
+numpy>=1.24
+shapely>=2.0
+pyproj>=3.6
+geopandas>=0.14
+esda>=2.9          # Getis-Ord Gi* / Moran（Python 3.12+ 会自动装 2.10+，API 兼容）
+libpysal>=4.7      # 空间权重（KNN）
+pymannkendall>=1.1 # Mann-Kendall 趋势检验
+
+# HTTP / LLM 调用
+requests>=2.31
+
+# 报告导入导出
+openpyxl>=3.1
+python-docx>=0.8.11
+
+# 可视化（V1 兼容层图表 / 热点地图仍在用）
+matplotlib>=3.7
+pillow>=10.0
+networkx>=3.0      # 路网拓扑与地图匹配
+folium>=0.16

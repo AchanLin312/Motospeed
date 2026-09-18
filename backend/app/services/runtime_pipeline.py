@@ -567,7 +567,7 @@ def load_feedback_records() -> list[Dict[str, Any]]:
 def bootstrap_runtime_assets():
     """启动时装载默认资源。
 
-    V2 改造（需求手册 AC01）：启动后不再自动加载旧平台 data.csv/test_data.csv，
+    V2 改造（需求手册 AC01）：启动后不自动加载任何数据，
     首页默认提示选择批次；若存在 2024-06-05 亦庄批次则标记为当前默认批次。
     """
     try:  # V2：确保亦庄批次存在并作为默认当前批次
@@ -582,23 +582,5 @@ def bootstrap_runtime_assets():
                 import_trajectory_csv(default_csv, default_csv.name)
     except Exception:
         pass
-    # V1 兼容：仅在完全没有任何 V2 批次时，才装载旧示例数据供旧页面演示
-    try:
-        from .v2.data_import import list_batches as _lb
-        if _lb():
-            return
-    except Exception:
-        pass
-    if not TRAJECTORY_FILE.exists():
-        sample = ROOT_DIR / "data.csv"
-        if not sample.exists():
-            sample = ROOT_DIR / "test_data.csv"
-        if sample.exists():
-            ingest_csv_file(sample, sample.name)
-    if not HOTSPOT_FILE.exists() or not SUMMARY_FILE.exists() or not MAP_FILE.exists():
-        try:
-            run_full_analysis({})
-        except Exception:
-            pass
 
 

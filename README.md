@@ -56,7 +56,7 @@
 ```
 motospeed 2.0/
 ├─backend/
-│  ├─run.py / wsgi.py / requirements.txt
+│  ├─run.py / wsgi.py
 │  └─app/
 │      ├─__init__.py              # 应用工厂：/ → V2 工作台，/v1 → V1 兼容页
 │      ├─config.py
@@ -80,7 +80,6 @@ motospeed 2.0/
 ├─frontend/src/                   # Leaflet 地图组件（MapContainer.vue）
 ├─ui/main_ui.py                   # PyQt6 桌面壳（全屏内嵌 V2 工作台）
 ├─scripts/
-│  ├─generate_hotspot_map.py      # CLI 快速生成热点 HTML
 │  ├─docs/                        # 文档转换脚本
 │  └─packaging/                   # 打包/清理脚本与 spec 文件
 ├─outputs/runtime/v2/             # V2 文件式存储
@@ -89,8 +88,10 @@ motospeed 2.0/
 │  └─analysis/<analysis_version>/ # 每轮分析成果（grid_metrics、热点、summary.json）
 ├─甲方新需求/                     # 甲方资料：需求手册、任务清单、论文 PDF、示例数据
 ├─说明文档/                       # 论文、变更记录、维护文档（V1 时代历史归档）
-├─start_desktop.bat               # 一键启动：后端 + 桌面版
-└─data.csv / test_data.csv        # 示例数据
+├─setup_v2.bat                    # 一键安装：创建 venv + 安装依赖（仅需一次）
+├─start_v2.example.bat            # 启动模板：复制为 start_v2.bat 并填入密钥
+├─start_docker.bat                # Docker 一键启动
+└─requirements.txt                # V2 依赖清单（Docker 用 requirements-docker.txt）
 ```
 
 ## 核心模块
@@ -111,26 +112,40 @@ motospeed 2.0/
 
 ## 快速开始
 
+### 方式 A：一键脚本部署（Windows，推荐）
+
+1. 双击运行 `setup_v2.bat`：自动创建虚拟环境并安装依赖（清华 PyPI 镜像，仅需执行一次）。
+2. 复制 `start_v2.example.bat` 为 `start_v2.bat`，填入 `LLM_API_KEY` 与 `V2_ADMIN_TOKEN`（该文件已 gitignore，不会入库）。
+3. 双击 `start_v2.bat` 启动后端，浏览器打开 `http://127.0.0.1:5000/`。
+
+### 方式 B：手动部署（Windows / Linux / macOS 通用）
+
 1. **准备环境（建议 Python 3.11+）**
    ```bash
    python -m venv venv
    .\venv\Scripts\activate  # Windows
-   pip install -r backend/requirements.txt
+   pip install -r requirements.txt
    ```
-2. **一键启动（推荐）**
-   - 网页版：运行后端后浏览器打开 `http://127.0.0.1:5000/`
-     ```bash
-     venv\Scripts\python.exe backend\run.py
-     ```
-   - 桌面版：双击 `start_desktop.bat`（自动拉起后端并等待 `/health` 就绪，随后启动 PyQt6 主窗口；后端已在跑时直接复用）。
-3. **体验 V2 API**
+2. **启动**
    ```bash
-   curl -F "file=@data.csv" http://127.0.0.1:5000/api/v2/batches/trajectory
-   curl -X POST -H "Content-Type: application/json" -d "{\"batch_id\":\"B001\",\"analysis_version\":\"A001\"}" http://127.0.0.1:5000/api/v2/analysis
-   curl http://127.0.0.1:5000/api/v2/analysis/A001/summary
-   curl http://127.0.0.1:5000/api/v2/hotspots?analysis_version=A001&layer=reverse
+   venv\Scripts\python.exe backend\run.py
    ```
-4. **LLM 处置建议**：设置环境变量 `LLM_API_BASE` / `LLM_API_KEY` / `LLM_MODEL`（默认 DeepSeek）后调用 `POST /api/v2/advice/generate`；管理接口需 `X-Admin-Token`（默认 `test-token-123`）。
+   浏览器打开 `http://127.0.0.1:5000/`。
+3. 桌面版（可选）：运行 `start_desktop.bat` 自动拉起后端并等待 `/health` 就绪，随后启动 PyQt6 主窗口（后端已在跑时直接复用）。
+
+### 方式 C：Docker 部署
+
+安装 Docker Desktop 后双击 `start_docker.bat`（等价于 `docker-compose up -d`），依赖清单见 `requirements-docker.txt`。
+
+### 体验 V2 API
+```bash
+curl -F "file=@你的轨迹数据.csv" http://127.0.0.1:5000/api/v2/batches/trajectory
+curl -X POST -H "Content-Type: application/json" -d "{\"batch_id\":\"B001\",\"analysis_version\":\"A001\"}" http://127.0.0.1:5000/api/v2/analysis
+curl http://127.0.0.1:5000/api/v2/analysis/A001/summary
+curl "http://127.0.0.1:5000/api/v2/hotspots?analysis_version=A001&layer=reverse"
+```
+
+> `LLM_API_KEY` 未配置时，AI 治理建议自动使用内置知识库模板兜底；`V2_ADMIN_TOKEN` 未配置时管理接口仅开发模式放行。
 
 ## API 速查（/api/v2，手册 15 接口）
 
