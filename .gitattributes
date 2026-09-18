@@ -1,3 +1,5 @@
 # Windows 批处理脚本必须 CRLF，否则部分 cmd 版本解析异常
 *.bat text eol=crlf
 *.sh text eol=lf
+*.dbf filter=lfs diff=lfs merge=lfs -text
+*.shp filter=lfs diff=lfs merge=lfs -text

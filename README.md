@@ -94,6 +94,8 @@ motospeed 2.0/
 └─requirements.txt                # V2 依赖清单（Docker 用 requirements-docker.txt）
 ```
 
+> **数据说明**：`甲方新需求/`（需求手册、算法任务清单、参考论文 PDF、示例轨迹 CSV、亦庄原始路网）已随仓库提供；其中大文件（`北京市.shp/.dbf`，约 287MB）经 **Git LFS** 存储——克隆前请先安装 [git-lfs](https://git-lfs.com) 并执行一次 `git lfs install`，否则大文件只会得到文本指针。`outputs/`（运行数据与分析成果）仍不入库；运行时也可通过 V2 工作台上传自己的轨迹 CSV 与路网。轨迹数据仅限项目相关方使用，请勿对外传播。
+
 ## 核心模块
 
 | 模块 | 说明 |
