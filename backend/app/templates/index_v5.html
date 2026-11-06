@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>数治骑迹 V2 · 外卖电动车多风险识别与治理辅助平台</title>
+    <title>数治骑迹·外卖电动自行车多风险识别与辅助治理平台</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
@@ -115,7 +115,8 @@
         /* 指标卡 */
         .kpi-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            /* 固定 5 列×2 行（10 张卡）：auto-fit 全屏只能放 9 列，第 10 张换行独占一行显得不整齐 */
+            grid-template-columns: repeat(5, 1fr);
             gap: 12px;
             margin-bottom: 18px;
         }
@@ -167,14 +168,23 @@
         /* 主体布局 */
         .workspace {
             display: grid;
-            grid-template-columns: 1fr 400px;
+            grid-template-columns: minmax(0, 1fr) 400px;
             gap: 16px;
-            align-items: start;
+        }
+
+        /* 左列面板与右侧 AI 建议面板等高，地图弹性吸收剩余高度，消除左列下方空白（甲方截图批注） */
+        .workspace > .panel:first-child {
+            display: flex;
+            flex-direction: column;
         }
 
         @media (max-width: 1100px) {
             .workspace {
                 grid-template-columns: 1fr;
+            }
+
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
 
@@ -184,6 +194,8 @@
             padding: 18px;
             border: 1px solid #e2e8ff;
             box-shadow: var(--shadow-sm);
+            min-width: 0;
+            overflow-wrap: anywhere; /* 长串（法规 URL/ID）面板内换行，防横向撑破（甲方截图问题） */
         }
 
         .panel h2 {
@@ -223,7 +235,8 @@
 
         #map {
             width: 100%;
-            height: 560px;
+            flex: 1;
+            min-height: 560px;
             border-radius: var(--radius-md);
             z-index: 0;
         }
@@ -524,8 +537,8 @@
 <body>
     <header>
         <div class="brand">
-            <h1>数治骑迹 V2 · 外卖电动车多风险识别与治理辅助平台</h1>
-            <p id="verInfo">超速 / 疑似逆行 / 急变速 三类风险 · IVMM 地图匹配 · 熵权-TOPSIS 综合评分 · AI 治理建议</p>
+            <h1>数治骑迹·外卖电动自行车多风险识别与辅助治理平台</h1>
+            <p id="verInfo">超速 / 逆行 / 急变速 三类风险 · IVMM 地图匹配 · 熵权-TOPSIS 综合评分 · AI 治理建议</p>
         </div>
         <select id="verSelect" class="ver-select" title="分析版本">
             <option value="">加载中…</option>
@@ -768,7 +781,7 @@
                     `${fmt(s.match && s.match.points_total, 0)} 点 → ${s.match ? s.match.net_id : '-'}`],
                 ['事件总数', fmt(bh.total_events, 0), '三类行为事件'],
                 ['超速', fmt(ec.overspeed, 0), `≥${(bh.overspeed_threshold_kmh || 20)} km/h 持续`],
-                ['疑似逆行', fmt(ec.reverse, 0), '子链判定'],
+                ['逆行', fmt(ec.reverse, 0), '子链判定'],
                 ['急加速 / 急减速', `${fmt(ec.rapid_accel, 0)} / ${fmt(ec.rapid_decel, 0)}`,
                     `阈值 ${fmt(bh.accel_thresholds && bh.accel_thresholds.accel_threshold_mps2, 2)}/${fmt(bh.accel_thresholds && bh.accel_thresholds.decel_threshold_mps2, 2)} m/s²`],
                 ['网格总数', fmt(s.grid_count, 0), `valid ${fmt(qf.valid, 0)} · 低暴露 ${fmt(qf.low_exposure, 0)}`],
@@ -1102,6 +1115,9 @@
             }
         }
 
+        // 后端 progress 已是 0-100 百分数，此前前端误乘 100 导致 500%（甲方截图问题）
+        function fmtPct(p) { return Math.round(Math.min(100, Math.max(0, p || 0))); }
+
         let pollTimer = null;
         function pollAnalysis(av) {
             if (pollTimer) clearInterval(pollTimer);
@@ -1110,8 +1126,8 @@
             pollTimer = setInterval(async () => {
                 try {
                     const s = await fetchJSON(`${API}/analysis/${encodeURIComponent(av)}/status`);
-                    bar.style.width = `${Math.round((s.progress || 0) * 100)}%`;
-                    st.textContent = `[${s.status}] ${s.stage || ''} ${(s.progress || 0) * 100 < 100 && s.stage ? '' : ''}${s.message || ''}`;
+                    bar.style.width = `${fmtPct(s.progress)}%`;
+                    st.textContent = `[${s.status}] ${s.stage || ''} ${fmtPct(s.progress) < 100 && s.stage ? '' : ''}${s.message || ''}`;
                     if (s.status === 'completed' || s.status === 'failed') {
                         clearInterval(pollTimer); pollTimer = null;
                         if (s.status === 'completed') {
@@ -1137,7 +1153,7 @@
                 const rows = [];
                 for (const t of (data.tasks || [])) {
                     rows.push(`<tr><td>${esc(t.analysis_version)}</td><td>${esc(t.status)}</td>
-                <td>${esc(t.stage || '-')}</td><td>${Math.round((t.progress || 0) * 100)}%</td></tr>`);
+                <td>${esc(t.stage || '-')}</td><td>${fmtPct(t.progress)}%</td></tr>`);
                 }
                 for (const c of (data.completed || [])) {
                     rows.push(`<tr><td>${esc(c.analysis_version)}</td><td class="ok-text">completed</td>
@@ -1189,7 +1205,7 @@
             try {
                 const data = await fetchJSON(`${API}/admin/logs`, { headers: adminHeaders() });
                 const lines = (data.tasks || []).map(t =>
-                    `${t.started_at || '-'} | ${t.analysis_version} | ${t.status} | ${t.stage || ''} ${Math.round((t.progress || 0) * 100)}% | ${t.message || ''}${t.error ? ' | ERR: ' + t.error : ''}`);
+                    `${t.started_at || '-'} | ${t.analysis_version} | ${t.status} | ${t.stage || ''} ${fmtPct(t.progress)}% | ${t.message || ''}${t.error ? ' | ERR: ' + t.error : ''}`);
                 lines.push(`--- 服务信息：管理鉴权 ${data.admin_mode_enabled ? '已启用' : '未启用（V2_ADMIN_TOKEN 未设置）'} · 生成于 ${data.generated_at}`);
                 box.textContent = lines.join('\n') || '暂无任务记录';
             } catch (err) {

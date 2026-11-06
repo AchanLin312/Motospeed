@@ -46,6 +46,8 @@ def _run(analysis_version: str, batch_id: str, net_id: str | None,
         with _LOCK:
             t = _TASKS.get(analysis_version)
             if t:
+                # 双保险钳位：即使上游误报超界，API 返回值也保证 0-100
+                pct = min(100.0, max(0.0, float(pct)))
                 t.update({"stage": stage, "progress": round(pct, 1),
                           "message": message, "status": "running"})
 

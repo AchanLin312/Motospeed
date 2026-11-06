@@ -56,7 +56,7 @@ OVERSPEED_MIN_POINTS = 2
 # 逆行参数
 REVERSE_ALPHA_D = 45.0      # 单向路容许浮动角
 REVERSE_LOW, REVERSE_HIGH = 135.0, 225.0  # 方向差区间
-REVERSE_SUBCHAIN_RATIO = 0.5  # 子链超过 50% 逆行点判疑似逆行
+REVERSE_SUBCHAIN_RATIO = 0.5  # 子链超过 50% 逆行点判逆行
 
 # 急变速参数
 RAPID_MAX_INTERVAL_S = 6.0    # 超过 6 秒不可判定（不插值）

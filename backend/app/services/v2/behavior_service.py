@@ -1,12 +1,12 @@
-"""M2 行为识别服务：超速 / 疑似逆行 / 急加速急减速。
+"""M2 行为识别服务：超速 / 逆行 / 急加速急减速。
 
 规则（需求手册 V1.0，RULE_VERSION 对齐）：
 1. 超速：速度 > 20 km/h 且连续持续 >= 10 s（逐点判定，连续段 end-start 达标即事件）
-2. 疑似逆行（仅对已匹配点）：
+2. 逆行（仅对已匹配点）：
    - 单向路（oneway=F 沿绘制方向 / T 反向，M0 实证）：观测航向与规定方向角差
      落在 [135°, 225°] → 逆行点
    - 双向路（B）：叉积判定车辆位于道路前进方向左侧（中国靠右行驶）→ 逆行点
-   - 子链内逆行点占比 > 50% → 疑似逆行事件（子链级）
+   - 子链内逆行点占比 > 50% → 逆行事件（子链级）
 3. 急变速：相邻点间隔 <= 6 s 才可判定（不插值）；
    - 运动样本（前后点均 >= 0.5 m/s）的加速度分布：P85 = 急加速阈值、P15 = 急减速阈值
    - 排除急启动：v_from < 0.5 m/s 的加速对不判急加速
@@ -97,7 +97,7 @@ def detect_overspeed(traj: pd.DataFrame,
     return events
 
 
-# ---------------------------------------------------------------- 疑似逆行
+# ---------------------------------------------------------------- 逆行
 
 def _is_reverse_point(oneway: str, obs_bearing: float,
                       seg_bearing: float) -> bool | None:
@@ -118,7 +118,7 @@ def _is_reverse_point(oneway: str, obs_bearing: float,
 
 def detect_reverse(matched: pd.DataFrame,
                    ratio_threshold: float = REVERSE_SUBCHAIN_RATIO) -> list[dict]:
-    """疑似逆行事件（子链级）。matched 需含 matched/oneway/obs_bearing/
+    """逆行事件（子链级）。matched 需含 matched/oneway/obs_bearing/
     seg_bearing/road_level/vehicle_id/segment_id/time/lon/lat。"""
     events: list[dict] = []
     df = matched.copy()
