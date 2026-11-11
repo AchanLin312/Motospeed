@@ -27,32 +27,41 @@ from . import llm_provider
 
 log = logging.getLogger("v2.advice")
 
-PROMPT_VERSION = "P-1.0"
+PROMPT_VERSION = "P-2.0"
 
-ADVICE_SECTIONS = ("risk_summary", "field_actions", "road_environment_checks",
-                   "platform_coordination", "education_actions", "verification")
+# 甲方第三次需求（四C）：正文改为三部分——风险摘要 / 一线治理建议（五要素对象）/ 其他建议
+# （道路环境、企业协同、骑手宣教）。效果验证类规则不再产出正文，仅进入溯源。
+ADVICE_SECTIONS = ("risk_summary", "field_actions", "road_env", "enterprise", "education")
 
-# 兜底模板：规则 → 输出部分的映射（12.4 六部分）
+# 一线治理建议五要素（几点/去哪/做什么/做到什么算完成/附带检查），deployment 为人员安排
+_FIELD_KEYS = ("when", "where", "deployment", "action", "completion")
+
+# 兜底模板：规则 → 输出部分的映射（None = 只溯源、不进正文）
 _SECTION_OF_RULE = {
     "KB-G01": "field_actions", "KB-G02": "field_actions",
     "KB-S01": "field_actions", "KB-S02": "field_actions",
     "KB-R01": "field_actions", "KB-A01": "field_actions",
-    "KB-R02": "road_environment_checks", "KB-A02": "road_environment_checks",
-    "KB-A03": "road_environment_checks",
-    "KB-E01": "platform_coordination",
-    "KB-E02": "education_actions",
-    "KB-F01": "verification", "KB-D01": "verification",
-    "KB-D02": "verification", "KB-Q01": "verification",
+    "KB-R02": "road_env", "KB-A02": "road_env", "KB-A03": "road_env",
+    "KB-E01": "enterprise", "KB-E02": "education",
+    "KB-F01": None, "KB-D01": None, "KB-D02": None, "KB-Q01": None,
 }
-_DEFAULT_SENTENCE = {
-    "field_actions": "早高峰在事件集中位置安排现场观察，记录主要风险行为与流向。",
-    "road_environment_checks": "现场核查标志标线、通行空间与视距等道路环境问题。",
-    "platform_coordination": "结合风险情况与配送企业沟通安全提醒与培训安排。",
-    "education_actions": "围绕主导风险行为对骑手开展针对性安全提示。",
-    "verification": "保留本次指标与热点结果，取得可比数据后按相同参数复算复核。",
+# 三类"其他建议"的兜底责任方（角色类目，非虚构的具体单位）
+_OWNER_FALLBACK = {
+    "road_env": "道路与交通设施管理责任单位（按现场情况转办）",
+    "enterprise": "配送平台企业安全负责人",
+    "education": "配送站点与平台企业培训负责人",
 }
 
 _BEHAVIOR_LABEL = {"overspeed": "超速", "reverse": "逆行", "rapid": "急变速"}
+
+
+def _num(v, nd: int = 1, default: float = 0.0) -> float:
+    """安全取数：NaN/None/非数一律回退默认值，避免兜底文案出现 nan。"""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return default
+    return default if pd.isna(f) else round(f, nd)
 
 
 # ---------------------------------------------------------------------------
@@ -196,25 +205,48 @@ def _whitelist_payload(grid: dict, hotspot_ctx: dict, risk_layer: str,
 # 本地规则模板兜底（12.2 / AC24）
 # ---------------------------------------------------------------------------
 
-def _fallback_advice(grid: dict, rules: list[dict]) -> dict:
-    """由触发规则模板按六部分组装本地建议。"""
+def _fallback_advice(grid: dict, rules: list[dict], period: str) -> dict:
+    """由触发规则模板组装本地建议（LLM 不可用/失败时兜底，同样满足三部分结构）。"""
     idx = {k: grid.get(f"{k}_index") or 0 for k in ("overspeed", "reverse", "rapid")}
     pos = {k: float(v) for k, v in idx.items() if v}
     dominant = _BEHAVIOR_LABEL.get(max(pos, key=pos.get), "综合风险") if pos else "综合风险"
-    sections = {k: [] for k in ADVICE_SECTIONS if k != "risk_summary"}
+
+    def _cnt(col: str) -> int:
+        return int(_num(grid.get(col), 0))
+
+    when = (period or "数据时段").replace("T", " ")
+    where = (f"网格 {grid.get('grid_id')} 中心附近"
+             f"（{_num(grid.get('center_lon'), 3)}, {_num(grid.get('center_lat'), 3)}），"
+             "具体点位以事件集中方向为准")
+    fa_rules = [r["action_text"] for r in rules
+                if _SECTION_OF_RULE.get(r["rule_id"]) == "field_actions"]
+    field_actions = [{
+        "when": when,
+        "where": where,
+        "deployment": "安排一组现场执勤/观察力量，人数按当日排班确定，携带记录设备",
+        "action": "；".join(fa_rules) or
+                  "在事件集中位置开展现场观察，记录主要风险行为、时段与行驶方向",
+        "completion": "完成一个高峰时段观察，登记风险行为数量、位置与方向，形成可核验记录",
+        "extra_check": "顺带检查头盔佩戴、号牌、载客载物等显性违法",
+    }]
+    sections = {"road_env": [], "enterprise": [], "education": []}
     for r in rules:
-        key = _SECTION_OF_RULE.get(r["rule_id"], "field_actions")
-        sections[key].append(r["action_text"])
-    for key, sentence in _DEFAULT_SENTENCE.items():
-        if not sections[key]:
-            sections[key].append(sentence)
+        key = _SECTION_OF_RULE.get(r["rule_id"])
+        if key in sections:
+            sections[key].append({
+                "trigger": r["risk_condition"],
+                "measure": r["action_text"],
+                "owner": _OWNER_FALLBACK[key],
+            })
     caution_note = "；".join(dict.fromkeys(
         r["caution"] for r in rules if r.get("caution")))
     return {
         "risk_summary": (
-            f"该网格当前主要由{dominant}风险驱动，"
-            f"综合风险指数 {round(float(grid.get('cri') or 0), 1)}。"
-            "本建议由本地知识库规则模板生成。"),
+            f"该网格{when}共记录超速{_cnt('overspeed_count')}起、逆行{_cnt('reverse_count')}起、"
+            f"急变速{_cnt('rapid_count')}起，暴露里程{_num(grid.get('exposure_km'))}公里，"
+            f"综合风险指数{_num(grid.get('cri'))}，以{dominant}最突出。"
+            "逆行、急变速为算法识别结果，处置前需现场核实。"),
+        "field_actions": field_actions,
         **sections,
         "basis_ids": list(dict.fromkeys(
             r["basis_id"] for r in rules if r.get("basis_id"))),
@@ -226,16 +258,17 @@ def _fallback_advice(grid: dict, rules: list[dict]) -> dict:
 # 提示词组装
 # ---------------------------------------------------------------------------
 
-_SYSTEM_PROMPT = """你是交通安全治理辅助助手，基于网格风险指标和治理知识库生成治理建议。
-必须遵守：
-1. 不得把逆行写成已确认违法，不得把急变速直接写成事故或违法。
-2. 不得根据轨迹分析建议处罚某个车辆或人员。
-3. 建议仅限当前数据支持的单日早高峰场景，不得声称全天或长期趋势。
-4. 知识库没有依据时说明需现场核实，不得编造法规条款、事故数据、路口设施或警力配置。
-5. 只输出一个 JSON 对象，字段为：
-   risk_summary（字符串，1-3句话）、field_actions、road_environment_checks、
-   platform_coordination、education_actions、verification（均为字符串数组，
-   不得虚构警力数量）、basis_ids（字符串数组，只准使用给定知识库条目编号）。"""
+_SYSTEM_PROMPT = """你是协助一线交警研判外卖电动自行车风险的助手，根据网格风险指标和知识库规则，给出一线可以直接照着执行的建议。
+写作要求：
+1. 用民警日常口头语言直接说事，禁止出现这些词：加强、提升、优化、进一步、持续、全面、深入、切实、确保、高度重视。
+2. 建议正文里不得写任何免责声明或"仅供参考"类句子（页面另有固定提示，无需你写）。
+3. 不得把逆行、急变速写成已确认的违法或事故；不得建议处罚具体车辆或人员；只依据数据支持的单日时段，不得外推长期趋势。
+4. 不得编造法规条款、事故数据、路口设施现状、警力数量；现场情况一律写需现场核实。
+5. 只输出一个 JSON 对象：
+   risk_summary：字符串，2-3 句，说清这个网格主要是什么问题、有多突出；
+   field_actions：对象数组（1-3 项），每项字段 when（什么时段）、where（去哪个位置，依据网格中心与事件集中方向）、deployment（安排什么人员和装备，不得虚构具体数量）、action（到了做什么）、completion（做到什么算完成，必须是可登记、可核验的结果）、extra_check（顺带检查什么，可省略）；
+   road_env、enterprise、education：对象数组（可为空），每项字段 trigger（什么情况启动）、measure（具体做什么）、owner（建议责任方）；
+   basis_ids：字符串数组，只准使用给定知识库条目编号。"""
 
 
 def _build_user_prompt(payload: dict, rules: list[dict], basis: dict) -> str:
@@ -252,7 +285,8 @@ def _build_user_prompt(payload: dict, rules: list[dict], basis: dict) -> str:
         + json.dumps(payload, ensure_ascii=False, indent=1)
         + "\n\n知识库触发规则：\n" + "\n".join(rule_lines)
         + "\n\n可用依据条款（basis_ids 只能从中选取）：\n" + "\n".join(basis_lines)
-        + "\n\n请生成治理建议 JSON（六部分 + basis_ids），内容必须基于上述规则与数据。")
+        + "\n\n请生成治理建议 JSON（风险摘要 + 一线治理建议 + 三类其他建议 + basis_ids），"
+          "内容必须基于上述规则与数据。")
 
 
 # ---------------------------------------------------------------------------
@@ -326,7 +360,7 @@ def generate_advice(analysis_version: str, grid_id: str,
     source, llm_status = "rule_fallback", "unavailable"
     advice = None
     if cfg["configured"]:
-        fallback = _fallback_advice(grid, rules)
+        fallback = _fallback_advice(grid, rules, period)
         obj = llm_provider.chat_json(
             _SYSTEM_PROMPT, _build_user_prompt(payload, rules, basis))
         if obj is None:
@@ -341,7 +375,7 @@ def generate_advice(analysis_version: str, grid_id: str,
             if obj is not None:
                 source, advice = "llm", obj
     else:
-        fallback = _fallback_advice(grid, rules)
+        fallback = _fallback_advice(grid, rules, period)
     if advice is None:
         advice = fallback
 
@@ -402,6 +436,8 @@ def get_basis(analysis_version: str, grid_id: str) -> dict:
         "analysis_version": analysis_version,
         "knowledge_base_version": rec.get("knowledge_base_version"),
         "source": rec.get("source"),
+        # 建议时外发的指标摘要，供溯源抽屉展示"依据哪些指标"
+        "payload": rec.get("payload"),
         "retrieved_rules": rec.get("retrieved_rules", []),
         "basis": details,
     }

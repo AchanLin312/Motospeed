@@ -15,4 +15,5 @@ from . import (  # noqa: E402,F401  注册各子路由
     advice,
     exports,
     admin,
+    feedback,
 )

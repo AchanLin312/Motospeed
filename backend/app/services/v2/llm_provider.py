@@ -27,8 +27,12 @@ log = logging.getLogger("v2.llm")
 DEFAULT_TIMEOUT_S = 45.0
 DEFAULT_MAX_TOKENS = 1024
 
-_ADVICE_SECTIONS = ("risk_summary", "field_actions", "road_environment_checks",
-                    "platform_coordination", "education_actions", "verification")
+_ADVICE_SECTIONS = ("risk_summary", "field_actions", "road_env", "enterprise", "education")
+_OWNER_HINT = {
+    "road_env": "道路与交通设施管理责任单位",
+    "enterprise": "配送平台企业安全负责人",
+    "education": "配送站点与平台企业培训负责人",
+}
 
 
 def _env(key: str, default: str = "") -> str:
@@ -124,18 +128,39 @@ def chat_json(system_prompt: str, user_prompt: str,
 # 建议结构校验（12.5：JSON Schema 或等效校验 + 一次自动修复）
 # ---------------------------------------------------------------------------
 
+def _item_ok(item, keys: tuple[str, ...]) -> bool:
+    return (isinstance(item, dict) and
+            all(isinstance(item.get(k), str) and item.get(k).strip() for k in keys))
+
+
 def validate_advice(obj: dict) -> list[str]:
-    """校验六部分 + basis_ids 结构，返回问题列表（空 = 合格）。"""
+    """校验 P-2.0 三部分结构（12.5），返回问题列表（空 = 合格）。
+
+    field_actions 为五要素对象数组且必须非空；road_env/enterprise/education
+    为 {trigger, measure, owner} 对象数组，允许为空。
+    """
     problems: list[str] = []
     summary = obj.get("risk_summary")
     if not isinstance(summary, str) or not summary.strip():
         problems.append("risk_summary 必须为非空字符串")
-    for key in _ADVICE_SECTIONS[1:]:
+
+    fa = obj.get("field_actions")
+    if not isinstance(fa, list) or not fa:
+        problems.append("field_actions 必须为非空数组")
+    else:
+        for i, item in enumerate(fa):
+            if not _item_ok(item, ("when", "where", "deployment", "action", "completion")):
+                problems.append(f"field_actions[{i}] 五要素字段缺失或非字符串")
+
+    for key in _ADVICE_SECTIONS[2:]:
         val = obj.get(key)
-        if not isinstance(val, list) or not all(isinstance(s, str) for s in val):
-            problems.append(f"{key} 必须为字符串数组")
-        elif not val:
-            problems.append(f"{key} 不能为空")
+        if not isinstance(val, list):
+            problems.append(f"{key} 必须为数组")
+            continue
+        for i, item in enumerate(val):
+            if not _item_ok(item, ("trigger", "measure", "owner")):
+                problems.append(f"{key}[{i}] 缺少 trigger/measure/owner")
+
     if not isinstance(obj.get("basis_ids"), list) or \
             not all(isinstance(s, str) for s in obj.get("basis_ids", [])):
         problems.append("basis_ids 必须为字符串数组")
@@ -143,19 +168,38 @@ def validate_advice(obj: dict) -> list[str]:
 
 
 def autofix_advice(obj: dict, fallback: dict) -> dict | None:
-    """一次自动修复：字符串按句拆为数组，缺失部分用兜底模板补齐。"""
+    """一次自动修复：结构不合格的部分用兜底模板补齐，合格部分保留。"""
     if not isinstance(obj, dict):
         return None
     fixed = dict(obj)
-    for key in (*_ADVICE_SECTIONS, "basis_ids"):
+
+    if not (isinstance(fixed.get("risk_summary"), str) and fixed["risk_summary"].strip()):
+        fixed["risk_summary"] = fallback.get("risk_summary")
+
+    fa = fixed.get("field_actions")
+    if isinstance(fa, list):
+        # 丢弃缺五要素的项；全部不合格则整段走兜底
+        keep = [it for it in fa
+                if _item_ok(it, ("when", "where", "deployment", "action", "completion"))]
+        fixed["field_actions"] = keep or fallback.get("field_actions")
+    else:
+        fixed["field_actions"] = fallback.get("field_actions")
+
+    for key in _ADVICE_SECTIONS[2:]:
         val = fixed.get(key)
         if isinstance(val, str) and val.strip():
-            if key == "risk_summary":
-                fixed[key] = val.strip()
-            else:
-                parts = [s.strip(" ;；") for s in
-                         val.replace("\n", "。").replace("；", "。").split("。")]
-                fixed[key] = [p for p in parts if p]
-        elif not (isinstance(val, list) and val):
-            fixed[key] = fallback.get(key)
+            # 模型把对象数组写成整段句子的情形：按句拆开包装为标准对象
+            parts = [p.strip(" ;；") for p in
+                     val.replace("\n", "。").replace("；", "。").split("。")
+                     if p.strip(" ;；")]
+            fixed[key] = [{"trigger": "数据达到命中规则条件时", "measure": p,
+                           "owner": _OWNER_HINT[key]} for p in parts]
+        elif isinstance(val, list):
+            fixed[key] = [it for it in val if _item_ok(it, ("trigger", "measure", "owner"))]
+        else:
+            fixed[key] = fallback.get(key, [])
+
+    bids = fixed.get("basis_ids")
+    fixed["basis_ids"] = ([s for s in bids if isinstance(s, str)]
+                          if isinstance(bids, list) else fallback.get("basis_ids", []))
     return fixed if not validate_advice(fixed) else None
