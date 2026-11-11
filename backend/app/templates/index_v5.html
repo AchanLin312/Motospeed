@@ -1235,6 +1235,8 @@
             try {
                 lastSummary = await fetchJSON(`${API}/analysis/${currentAV}/summary`);
                 renderKPIs(lastSummary);
+                // 地图容器初始化时处于 hidden（空态），必须先重算尺寸再定位，否则热点全部投影到 0×0
+                map.invalidateSize();
                 if (lastSummary.batch && lastSummary.batch.bbox) {
                     const b = lastSummary.batch.bbox;
                     map.fitBounds([[b[1], b[0]], [b[3], b[2]]], { padding: [24, 24] });
@@ -1330,7 +1332,12 @@
                     st.textContent = `【${LAYER_LABEL[layer]}】热点 ${feats.length} 格` +
                         (types.has('top_risk_fallback') ? '（Gi* 无显著网格，展示 Top8 兜底关注）' : '');
                     const bounds = hotspotLayer.getBounds();
-                    if (bounds.isValid()) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+                    map.invalidateSize();   // 图层切换重定位前同样强制重算容器尺寸
+                    if (bounds.isValid()) {
+                        map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+                        // fitBounds 缩放动画期间 SVG 渲染器可能跳过重绘，动画结束后再重算兜底
+                        map.once('moveend', () => setTimeout(() => { if (map) map.invalidateSize(); }, 60));
+                    }
                 }
                 // 需求 四：图层联动——选中的网格按新图层重渲染三级指标
                 if (currentGridId && lastGrid) renderGrid(lastGrid);
@@ -1481,6 +1488,9 @@
             if (!document.getElementById('fbModal').classList.contains('open')) {
                 document.body.classList.remove('modal-open');
             }
+            // modal-open 移除后页面滚动条回归、容器宽度跳变，Leaflet 尺寸缓存过期；
+            // 待过渡结束后重算，否则切图层时热点被投影成 0×0
+            setTimeout(() => { if (map) map.invalidateSize(); }, 350);
         }
 
         /* 关闭弹层后网格保持选中状态，回到原滚动位置（需求 四B） */
@@ -1511,7 +1521,8 @@
         function renderAdvice(rec) {
             document.getElementById('adviceTitle').textContent = `网格 ${rec.grid_id || currentGridId} · AI 治理建议`;
             document.getElementById('adviceMeta').textContent = `生成时间：${fmtTime(rec.generated_at)}`;
-            const s = rec.sections || {};
+            // 后端 record 顶层即 risk_summary/field_actions/...，无 sections 包装
+            const s = rec;
             let html = '';
             // 需求 四C：LLM 失败/校验不过时明示切换本地模板
             if (['failed', 'invalid', 'error'].includes(String(rec.llm_status))) {
